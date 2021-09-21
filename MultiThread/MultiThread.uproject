@@ -1,0 +1,17 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{1EE040A2-49F3-0504-7415-569FA93914B3}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "MultiThread",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine",
+				"UMG"
+			]
+		}
+	]
+}
