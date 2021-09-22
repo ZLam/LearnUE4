@@ -1,0 +1,26 @@
+// return SceneTextureLookup(GetDefaultSceneTextureUV(Parameters, 8), 8, false);
+
+// return float3(1.0f, 1.0f, 0.0f);
+
+//     return 1;
+// }
+// float3 test()
+// {
+//     return float3(1.0f, 0.0f, 1.0f);
+
+    return 1;
+}
+
+float3 hash32(float2 p)
+{
+	float3 p3 = frac(float3(p.xyx) * float3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz+19.19);
+    return frac((p3.xxy+p3.yzz)*p3.zyx);
+}
+
+// returns { RGB, dist to edge (0 = edge, 1 = center) }
+float4 disco(float2 uv) {
+    float v = abs(cos(uv.x * PI * 2.) + cos(uv.y *PI * 2.)) * .5;
+    uv.x -= .5;
+    float3 cid2 = hash32(float2(floor(uv.x - uv.y), floor(uv.x + uv.y))); // generate a color
+    return float4(cid2, v);

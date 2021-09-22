@@ -1,0 +1,32 @@
+// return test();
+
+// void mainImage( out vec4 o, in vec2 fragCoord)
+// {
+    float2 R = iResolution.xy;
+    float2 uv = fragCoord / R;
+    uv.x *= R.x / R.y; // aspect correct
+
+    float t = iTime * .6; //t = 0.;
+    uv *= 8.;
+    uv -= float2(t*.5, -t*.3);
+    
+    float4 o = 1;
+    for(float i = 1.; i <= 4.; ++i) {
+        uv /= i*.9;
+        float4 d = disco(uv);
+        float curv = pow(d.a, .44-((1./i)*.3));
+        curv = pow(curv, .8+(d.b * 2.));
+        o *= clamp(d * curv,.35, 1.);
+        uv += t*(i+.3);
+    }
+    
+    // post
+    o = clamp(o,.0,1.);
+    float2 N = (fragCoord / R )- .5;
+    o = 1.-pow(1.-o, float4(30.0,30.0,30.0,30.0));// curve
+    o.rgb += hash32(fragCoord + iTime).r*.07;//noise
+    o *= 1.1-smoothstep(.4,.405,abs(N.y));
+    o *= 1.0-dot(N,N*1.7);// vingette
+    o.a = 1.;
+    return o;
+// }

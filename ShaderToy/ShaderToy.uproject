@@ -1,0 +1,13 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{3F323D93-4D38-B91B-85D7-EA971D0EEE37}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "ShaderToy",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
