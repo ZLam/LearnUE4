@@ -8,6 +8,8 @@
 
 class UButton;
 class FTestThreadRunnable;
+class FTestNonSyncThreadRunnableOne;
+class FTestNonSyncThreadRunnableTwo;
 
 /**
  * 
@@ -19,6 +21,8 @@ class MULTITHREAD_API UTestThreadView : public UUserWidget
 
 private:
 	FTestThreadRunnable* TestThreadRunnable;
+	FTestNonSyncThreadRunnableOne* TestNonSyncThreadOne;
+	FTestNonSyncThreadRunnableTwo* TestNonSyncThreadTwo;
 
 protected:
 	UPROPERTY()
@@ -41,6 +45,12 @@ protected:
 
 	UPROPERTY()
 	UButton* Btn_TestAsyncTask;
+
+	UPROPERTY()
+	UButton* Btn_TestNonSyncThread;
+
+	UPROPERTY()
+	UButton* Btn_GetNonSyncThreadResult;
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -67,6 +77,12 @@ protected:
 
 	UFUNCTION()
 	void Btn_TestAsyncTask_Callback();
+
+	UFUNCTION()
+	void Btn_TestNonSyncThread_Callback();
+
+	UFUNCTION()
+	void Btn_GetNonSyncThreadResult_Callback();
 
 	void DeleteTestThread();
 };

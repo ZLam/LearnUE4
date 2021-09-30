@@ -23,7 +23,7 @@ FTestThreadRunnable::~FTestThreadRunnable()
 
 bool FTestThreadRunnable::Init()
 {
-	UE_LOG(LogTemp, Warning, TEXT("=== FTestThreadRunnable::Init ==="));	
+	UE_LOG(LogTemp, Warning, TEXT("=== FTestThreadRunnable::Init ==="));
 	return true;
 	// return false;	// only init , dont exec Run() or Exit()
 }

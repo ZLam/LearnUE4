@@ -3,6 +3,8 @@
 #include "TestThreadView.h"
 #include "Components/Button.h"
 #include "TestThread.h"
+#include "TestNonSyncThread.h"
+#include "NormalSingleton.h"
 
 void UTestThreadView::NativeOnInitialized()
 {
@@ -63,6 +65,22 @@ void UTestThreadView::NativeOnInitialized()
 		BtnCallback.BindUFunction(this, TEXT("Btn_TestAsyncTask_Callback"));
 		Btn_TestAsyncTask->OnClicked.Add(BtnCallback);
 	}
+
+	Btn_TestNonSyncThread = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestNonSyncThread")));
+	if (Btn_TestNonSyncThread)
+	{
+		FScriptDelegate BtnCallback;
+		BtnCallback.BindUFunction(this, TEXT("Btn_TestNonSyncThread_Callback"));
+		Btn_TestNonSyncThread->OnClicked.Add(BtnCallback);
+	}
+	
+	Btn_GetNonSyncThreadResult = Cast<UButton>(GetWidgetFromName(TEXT("Btn_GetNonSyncThreadResult")));
+	if (Btn_GetNonSyncThreadResult)
+	{
+		FScriptDelegate BtnCallback;
+		BtnCallback.BindUFunction(this, TEXT("Btn_GetNonSyncThreadResult_Callback"));
+		Btn_GetNonSyncThreadResult->OnClicked.Add(BtnCallback);
+	}
 }
 
 void UTestThreadView::NativeDestruct()
@@ -119,6 +137,28 @@ void UTestThreadView::Btn_TestAsyncTask_Callback()
 	
 }
 
+void UTestThreadView::Btn_TestNonSyncThread_Callback()
+{
+	/**
+	 * 这里尝试了下没做同步处理，同时读写一个公共资源，正确结果应该是2000000，但实际结果不是，是无法估计的，
+	 * 导致结果的不对，所以对于公共资源的处理时要做同步
+	 */
+	FNormalSingleton::Get().ResetNonSyncCounter();
+	if (!TestNonSyncThreadOne)
+	{
+		TestNonSyncThreadOne = new FTestNonSyncThreadRunnableOne();
+	}
+	if (!TestNonSyncThreadTwo)
+	{
+		TestNonSyncThreadTwo = new FTestNonSyncThreadRunnableTwo();
+	}
+}
+
+void UTestThreadView::Btn_GetNonSyncThreadResult_Callback()
+{
+	UE_LOG(LogTemp, Warning, TEXT("%d"), FNormalSingleton::Get().GetNonSyncCounter());
+}
+
 void UTestThreadView::DeleteTestThread()
 {
 	if (TestThreadRunnable)
@@ -126,5 +166,17 @@ void UTestThreadView::DeleteTestThread()
 		TestThreadRunnable->EnsureCompletion();
 		delete TestThreadRunnable;
 		TestThreadRunnable = nullptr;
+	}
+	if (TestNonSyncThreadOne)
+	{
+		TestNonSyncThreadOne->EnsureCompletion();
+		delete TestNonSyncThreadOne;
+		TestNonSyncThreadOne = nullptr;
+	}
+	if (TestNonSyncThreadTwo)
+	{
+		TestNonSyncThreadTwo->EnsureCompletion();
+		delete TestNonSyncThreadTwo;
+		TestNonSyncThreadTwo = nullptr;
 	}
 }

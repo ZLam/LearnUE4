@@ -1,6 +1,8 @@
+#pragma once
+
 #include "HAL/Runnable.h"
 
-class FTestThreadRunnable : public FRunnable
+class MULTITHREAD_API FTestThreadRunnable : public FRunnable
 {
 private:
 	FThreadSafeCounter StopTaskCounter = 0;
@@ -14,6 +16,21 @@ private:
 	/**
 	 * 临界区
 	 * 该类型需要不同平台有不同的实现。
+	 * 临界区可以理解为，一组操作或行为需要原子性执行。
+	 * 那原子性又是什么，顾名思义，原子就系最细的，最小粒度，uncutable。所以一个操作，要不就没做，要不就做完，不存在中间态，做到30%这样的情况。
+	 * 所以既然临界区能原子性执行一组操作，那么就能处理公共资源使用的同步问题。如果临界区没执行任何操作，那么需要进入临界区的操作可以直接进入，
+	 * 直到临界区的操作做完前，其他任何需要进入临界区的操作会先挂起，当临界区空出再会调起。就是这样保证原子性的，完整做完一组操作再做其他。
+	 * https://www.geeksforgeeks.org/g-fact-70/
+	 * https://www.cnblogs.com/chenhs/archive/2011/06/13/2080050.html
+	 *
+	 * windows平台的critical section和mutex
+	 * critical section通常都会比mutex快。
+	 * 但critical section只能在同一进程里线程间同步。
+	 * mutex可以不同进程间同步。
+	 * 所以明显mutex能力比较强，目前理解就是mutex要支持不同进程间同步，所以暂用的资源，和处理的情况更复杂，所以比critical section慢。
+	 * 一般情况下（就是非竞争情况，uncontention），critical section就会比mutex快，可能是处理的东西不多，当在竞争情况下（contention），
+	 * 才会使用内核模式（kernel mode）进行同步
+	 * https://stackoverflow.com/questions/800383/what-is-the-difference-between-mutex-and-critical-section
 	 */
 	FCriticalSection LockPrimeNumber;
 
