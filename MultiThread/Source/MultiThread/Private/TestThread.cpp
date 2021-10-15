@@ -120,6 +120,15 @@ void FTestThreadRunnable::WaitForCompletion()
 	}
 }
 
+bool FTestThreadRunnable::Kill()
+{
+	if (Thread)
+	{
+		return Thread->Kill();
+	}
+	return false;
+}
+
 int32 FTestThreadRunnable::GetLastPrimeNumber()
 {
 	FScopeLock Lock(&LockPrimeNumber);

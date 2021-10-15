@@ -5,6 +5,8 @@
 #include "TestThread.h"
 #include "TestNonSyncThread.h"
 #include "NormalSingleton.h"
+#include "TestInitThread.h"
+#include "TestAsyncTask.h"
 
 void UTestThreadView::NativeOnInitialized()
 {
@@ -58,14 +60,6 @@ void UTestThreadView::NativeOnInitialized()
 		Btn_TestRunnable_Resume->OnClicked.Add(BtnCallback);
 	}
 
-	Btn_TestAsyncTask = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestAsyncTask")));
-	if (Btn_TestAsyncTask)
-	{
-		FScriptDelegate BtnCallback;
-		BtnCallback.BindUFunction(this, TEXT("Btn_TestAsyncTask_Callback"));
-		Btn_TestAsyncTask->OnClicked.Add(BtnCallback);
-	}
-
 	Btn_TestNonSyncThread = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestNonSyncThread")));
 	if (Btn_TestNonSyncThread)
 	{
@@ -81,11 +75,44 @@ void UTestThreadView::NativeOnInitialized()
 		BtnCallback.BindUFunction(this, TEXT("Btn_GetNonSyncThreadResult_Callback"));
 		Btn_GetNonSyncThreadResult->OnClicked.Add(BtnCallback);
 	}
+
+	Btn_TestStatic = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestStatic")));
+	if (Btn_TestStatic)
+	{
+		FScriptDelegate BtnCallback;
+		BtnCallback.BindUFunction(this, TEXT("Btn_TestStatic_Callback"));
+		Btn_TestStatic->OnClicked.Add(BtnCallback);
+	}
+
+	Btn_TestInitThread = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestInitThread")));
+	if (Btn_TestInitThread)
+	{
+		FScriptDelegate BtnCallback;
+		BtnCallback.BindUFunction(this, TEXT("Btn_TestInitThread_Callback"));
+		Btn_TestInitThread->OnClicked.Add(BtnCallback);
+	}
+
+	Btn_TestNormalAsyncTask = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestNormalAsyncTask")));
+	if (Btn_TestNormalAsyncTask)
+	{
+		FScriptDelegate BtnCallback;
+		BtnCallback.BindUFunction(this, TEXT("Btn_TestNormalAsyncTask_Callback"));
+		Btn_TestNormalAsyncTask->OnClicked.Add(BtnCallback);
+	}
+
+	Btn_TestAutoDelAsyncTask = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestAutoDeleteAsyncTask")));
+	if (Btn_TestAutoDelAsyncTask)
+	{
+		FScriptDelegate BtnCallback;
+		BtnCallback.BindUFunction(this, TEXT("Btn_TestAutoDelAsyncTask_Callback"));
+		Btn_TestAutoDelAsyncTask->OnClicked.Add(BtnCallback);
+	}
 }
 
 void UTestThreadView::NativeDestruct()
 {
-	DeleteTestThread();
+	CleanupTestThread();
+	CleanupTestAsyncTask();
 }
 
 void UTestThreadView::Btn_TestRunnable_Start_Callback()
@@ -101,10 +128,9 @@ void UTestThreadView::Btn_TestRunnable_Complete_Callback()
 
 void UTestThreadView::Btn_TestRunnable_Kill_Callback()
 {
-	//Stop方法在FRunnableThread的kill方法中被调用（kill可以选择等待还是不等待线程结束，kill实际也是通过stop来停止线程，如果stop没有执行停止线程的操作，则kill如果是等待线程，则将一致阻塞），而kill方法也会被FRunnableThread::~FRunnableThread（）自动调用，这时kill是等待线程结束的
-	DeleteTestThread();		// 里面会调一下 Stop() 尝试停止线程，bShouldWait==false的话直接清理线程，bShouldWait==true的话会阻塞等线程执行完再清理，注意避免泄漏或者死锁之类（init -> run -> stop -> exit）
-
-	// delete TestThreadRunnable;		// 这样 delete 也会触发Stop()，因为看源码至少Windows平台这边析构Thread会调Kill()，里面会调Stop()
+	// Stop方法在FRunnableThread的kill方法中被调用（kill可以选择等待还是不等待线程结束，kill实际也是通过stop来停止线程，如果stop没有执行停止线程的操作，则kill如果是等待线程，则将一致阻塞），而kill方法也会被FRunnableThread::~FRunnableThread（）自动调用，这时kill是等待线程结束的
+	// 里面会调一下 Stop() 尝试停止线程，bShouldWait==false的话直接清理线程，bShouldWait==true的话会阻塞等线程执行完再清理，注意避免泄漏或者死锁之类（init -> run -> stop -> exit）
+	TestThreadRunnable->Kill();
 }
 
 void UTestThreadView::Btn_TestRunnable_GetPrimeNumber_Callback()
@@ -132,11 +158,6 @@ void UTestThreadView::Btn_TestRunnable_Resume_Callback()
 	}
 }
 
-void UTestThreadView::Btn_TestAsyncTask_Callback()
-{
-	
-}
-
 void UTestThreadView::Btn_TestNonSyncThread_Callback()
 {
 	/**
@@ -159,12 +180,42 @@ void UTestThreadView::Btn_GetNonSyncThreadResult_Callback()
 	UE_LOG(LogTemp, Warning, TEXT("%d"), FNormalSingleton::Get().GetNonSyncCounter());
 }
 
-void UTestThreadView::DeleteTestThread()
+void UTestThreadView::Btn_TestStatic_Callback()
+{
+	for (int32 i = 0; i < 3; i++)
+	{
+		FTestStatic t;
+		t.Run();
+	}
+}
+
+void UTestThreadView::Btn_TestInitThread_Callback()
+{
+	if (!TestInitThread)
+	{
+		TestInitThread = new FTestInitThreadRunnable();
+	}
+}
+
+void UTestThreadView::Btn_TestNormalAsyncTask_Callback()
+{
+	TestNormalAsyncWork = new FAsyncTask<FTestNormalAsyncTask>();
+	TestNormalAsyncWork->StartBackgroundTask();
+	UE_LOG(LogTemp, Warning, TEXT("=== UTestThreadView::Btn_TestNormalAsyncTask_Callback ==="));
+}
+
+void UTestThreadView::Btn_TestAutoDelAsyncTask_Callback()
+{
+	(new FAutoDeleteAsyncTask<FTestAutoDelAsyncTask>())->StartBackgroundTask();
+	UE_LOG(LogTemp, Warning, TEXT("=== UTestThreadView::Btn_TestAutoDelAsyncTask_Callback ==="));
+}
+
+void UTestThreadView::CleanupTestThread()
 {
 	if (TestThreadRunnable)
 	{
 		TestThreadRunnable->EnsureCompletion();
-		delete TestThreadRunnable;
+		delete TestThreadRunnable;			// 这样 delete 也会触发Stop()，因为看源码至少Windows平台这边析构Thread会调Kill()，里面会调Stop()
 		TestThreadRunnable = nullptr;
 	}
 	if (TestNonSyncThreadOne)
@@ -178,5 +229,21 @@ void UTestThreadView::DeleteTestThread()
 		TestNonSyncThreadTwo->EnsureCompletion();
 		delete TestNonSyncThreadTwo;
 		TestNonSyncThreadTwo = nullptr;
+	}
+	if (TestInitThread)
+	{
+		TestInitThread->EnsureCompletion();
+		delete TestInitThread;
+		TestInitThread = nullptr;
+	}
+}
+
+void UTestThreadView::CleanupTestAsyncTask()
+{
+	if (TestNormalAsyncWork)
+	{
+		TestNormalAsyncWork->EnsureCompletion();
+		delete TestNormalAsyncWork;
+		TestNormalAsyncWork = nullptr;
 	}
 }

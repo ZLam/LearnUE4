@@ -1,0 +1,470 @@
+搞搞下发现要补习下进程和线程的概念
+0，首先，我们平时在用电脑，一般都会同时开着多个应用程序在使用。例如，听着spotify，挂着wechat，开着chrome，用着vscode写代码。所有东西
+感觉都在同时进行着。实际上就算不用多核CPU，用单核CPU，多个应用程序用起来一样同时在跑。原因是CPU足够快，通常CPU核心顶多十几个，但进程
+可能会有几百上千个。肯定不能设计成做完播放完一首歌的工作，才能做发信息的工作，这样一件件来。所以，实际的设计是操作系统会分配给进程一个
+时间片段，进程如果在该时间内已经做完工作，那么系统马上为之后的进程分配时间片段；如果时间内未完成或者遇到阻塞工作，保存当前进程环境，
+然后进程排队等待下次分配时间片段，接着继续分配时间片段给之后的进程，直到又分配到时间片段给之前进程，就恢复环境，再继续执行；如果有
+优先级更高的进程，或内核一些中断服务程序（鼠标键盘输入？），那么会马上挂起当前进程，响应更优先的进程。
+1，进程和线程究竟系咩嚟。首先呢两样野系操作系统下的东西，操作系统可以跑多个应用程序，而进程就可以理解为正在执行的程序，
+我们写的源代码编译后的成为应用程序存在硬盘上，操作系统可以加载运行这些应用程序，而程序运行就需要占用资源，计算资源（CPU），
+内存资源和文件资源。所以进程不单单只是正在执行的程序指令，还有各种内核状态，CPU寄存器，虚拟内存，栈等等包含的资源。
+	而线程可以理解为细分这个计算资源。先说说历史，在很早时候的计算机，一开始的设计只有进程，没有线程的。但后来发现，开发一个应用程序，
+往往要创建多个进程，因为往往需要同时进行多个工作，例如开发一个游戏，需要处理渲染，用户输入，文件IO，网络通信等等。所以，设计出线程
+处理这个问题。
+	到此，应该就能明白“进程是资源分配的最小单位，线程是CPU调度的最小单位”这句话的意思了。进程它是正在执行的程序，需要用到各种资源，
+而在一进程下，可以有多个线程细分呢个计算资源，因为进程里需要同时执行多个工作，所以就要细分计算资源（CPU资源）给各个工作（线程）。
+2，调度进程和线程。系统会不停的分配时间片段给进程（当然实际运用这时间片段的是线程）来达到成百上千的进程看上去在同时运行。实际这个
+调度策略的算法是系统内部的，也是完全它来安排的，用户不能手动调度的。但我们知道调度的时候，通常会发生进程切换和线程切换。我们要
+了解这切换里头大概干了些什么。最重要就系要搞清楚呢个上下文（context）。通常把上下文理解成那一刻的情况就好了。那进程的上下文（情况）
+和线程的上下文（情况）具体是什么和区别又是什么呢。首先，进程是由内核来管理和调度的，进程的切换只能发生在内核态。所以，进程的上下文（情况）
+不仅包括了虚拟内存、栈、全局变量等用户空间的资源，还包括了内核堆栈、寄存器等内核空间的状态。而线程的上下文（情况），由于线程在进程里，
+线程只是仅仅细分计算资源，所以它共享进程里相同的虚拟内存和全局变量等资源，而它的上下文只是线程内部私有数据，比如栈和寄存器等。所以，
+才会说切换进程消耗比线程大。所以在调度进程和线程时，一般就理解成保存当前进程或线程的上下文（那一刻的情况），然后恢复要执行进程或者线程
+的上下文，然后获得时间片段执行程序。具体的切换情况可以看看ref。
+3，最后总结一下，想着想着觉得进程和线程这套东西，有点像人类社会的经济系统，就是在有限的资源下，合理高效的把资源分配下去，让整体快速的
+运转起来。所以我觉得，这套东西就是用来分配好运用好整台机器的资源的。
+ref：
+https://zhuanlan.zhihu.com/p/52845869
+http://learn.lianglianglee.com/%E4%B8%93%E6%A0%8F/%E9%87%8D%E5%AD%A6%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F-%E5%AE%8C/17%20%20%E8%BF%9B%E7%A8%8B%E5%92%8C%E7%BA%BF%E7%A8%8B%EF%BC%9A%E8%BF%9B%E7%A8%8B%E7%9A%84%E5%BC%80%E9%94%80%E6%AF%94%E7%BA%BF%E7%A8%8B%E5%A4%A7%E5%9C%A8%E4%BA%86%E5%93%AA%E9%87%8C%EF%BC%9F.md
+https://www.zhihu.com/question/25532384
+
+
+1，FRunnable
+首先FRunnable是一个虚基类，是用户定义线程具体需要执行什么的类
+需要重写这些方法，bool Init()，uint32 Run()，void Stop()，void Exit()
+重要属性：
+没有
+重要方法：（基本上这些方法都需要用户去定义自己逻辑的）
+virtual bool Init();
+virtual uint32 Run() = 0;
+virtual void Stop();
+virtual void Exit();
+
+2，FRunnableThread
+FRunnableThread也是一个虚基类，表示线程的类，管理一个线程的生命周期
+不同平台继承它重写对应逻辑
+重要属性：
+uint32 ThreadID;				// 线程id，唯一标识
+FString ThreadName;				// 线程名字，没指定默认"Unnamed UE4"
+FRunnable* Runnable;			// 线程具体执行什么逻辑的对象
+FEvent* ThreadInitSyncEvent;	// 同步线程初始化流程的event（会阻塞主线程，初始化流程跑完后会通知主线程）
+EThreadPriority ThreadPriority;	// TODO
+uint64 ThreadAffinityMask;		// TODO
+重要方法：
+static void SetupCreatedThread(FRunnableThread*& NewThread,
+	class FRunnable* InRunnable,
+	const TCHAR* ThreadName,
+	uint32 InStackSize,
+	EThreadPriority InThreadPri,
+	uint64 InThreadAffinityMask,
+	EThreadCreateFlags InCreateFlags);													// 初始化 FRunnableThread 对象
+virtual bool CreateInternal( FRunnable* InRunnable, const TCHAR* InThreadName,
+	uint32 InStackSize = 0,
+	EThreadPriority InThreadPri = TPri_Normal, uint64 InThreadAffinityMask = 0, 
+	EThreadCreateFlags InCreateFlags = EThreadCreateFlags::None) = 0;					// 创建实际的线程
+virtual void SetThreadPriority( EThreadPriority NewPriority ) = 0;						// 设置线程优先度
+virtual void Suspend( bool bShouldPause = true ) = 0;									// 暂停/恢复 线程
+virtual bool Kill( bool bShouldWait = true ) = 0;										// 退出线程，会尝试调 FRunnable 的 Stop 方法，用用户定义的逻辑去停止线程执行，然后 bShouldWait 为 true 的话，一直等待线程执行完毕，不然马上退出可能会有类似死锁的问题
+virtual void WaitForCompletion() = 0;													// 等待线程执行完
+
+3，FPlatformProcess
+封装多个接口方便去使用线程，进程的类
+这里注意不是不同平台创建自己的类继承FPlatformProcess再去重写逻辑的，
+而是新建平台对应的类继承FGenericPlatformProcess，然后做个typedef用FPlatformProcess的名字使用
+例如Windows上是：
+#if WINDOWS_USE_FEATURE_PLATFORMPROCESS_CLASS
+typedef FWindowsPlatformProcess FPlatformProcess;
+#endif
+例如Android上是：
+#if !PLATFORM_LUMIN
+typedef FAndroidPlatformProcess FPlatformProcess;
+#endif
+重要属性：
+没有
+重要方法：
+FRunnableThread* CreateRunnableThread();
+
+4，FRunnableThreadWin
+FRunnableThread的Windows平台实现，
+该类会实现FRunnableThread的各种接口以控制线程的生命周期
+重要属性：
+HANDLE Thread;				// 表示实际线程的句柄
+重要方法：
+static ::DWORD STDCALL _ThreadProc( LPVOID pThis );			// 线程执行的函数
+uint32 GuardedRun();										// 线程的执行的主要流程
+uint32 Run();												// 执行 FRunnable 对象里用户定义的逻辑
+
+5，FThreadManager
+线程管理类
+目前看来就是有个容器，有个map存着FRunnableThread对象用threadId作为key
+重要属性：
+TMap<uint32, class FRunnableThread*, TInlineSetAllocator<256>> Threads;
+重要方法：
+void AddThread(uint32 ThreadId, class FRunnableThread* Thread);					// 添加线程信息
+void RemoveThread(class FRunnableThread* Thread);								// 移除线程信息
+static const FString& GetThreadName(uint32 ThreadId)							// 获取线程名字
+void ForEachThread(TFunction<void(uint32, class FRunnableThread*)> Func);		// 遍历线程
+
+6，FCriticalSection
+临界区
+该类型需要不同平台有不同的实现。
+临界区可以理解为，一组操作或行为需要原子性执行。
+那原子性又是什么，顾名思义，原子就系最细的，最小粒度，uncutable。所以一个操作，要不就没做，要不就做完，不存在中间态，做到30%这样的情况。
+所以既然临界区能原子性执行一组操作，那么就能处理公共资源使用的同步问题。如果临界区没执行任何操作，那么需要进入临界区的操作可以直接进入，
+直到临界区的操作做完前，其他任何需要进入临界区的操作会先挂起，当临界区空出再会调起。就是这样保证原子性的，完整做完一组操作再做其他。
+https://www.geeksforgeeks.org/g-fact-70/
+https://www.cnblogs.com/chenhs/archive/2011/06/13/2080050.html
+------
+windows平台的critical section和mutex
+critical section通常都会比mutex快。
+但critical section只能在同一进程里线程间同步。
+mutex可以不同进程间同步。
+所以明显mutex能力比较强，目前理解就是mutex要支持不同进程间同步，所以暂用的资源，和处理的情况更复杂，所以比critical section慢。
+一般情况下（就是非竞争情况，uncontention），critical section就会比mutex快，可能是处理的东西不多，当在竞争情况下（contention），
+才会使用内核模式（kernel mode）进行同步
+https://stackoverflow.com/questions/800383/what-is-the-difference-between-mutex-and-critical-section
+
+7，FEvent
+事件
+该类型需要不同平台有不同的实现。
+某些事情发生的时候就发送事件（发送信号），收到事件（收到信号）的地方知道事情已经发生了那么可以做后续的处理。
+一般多个线程间某个线程需要其他线程做完某些事情后才能做后续工作，那么其他线程做完这些事情后就会发送一个事件（信号），
+然后收到事件（信号）的线程才开始后续其他的工作。
+bIsManualReset参数是是否需要手动reset，如果true，那么Trigger后，事件一直处于已发状态，直到执行Reset，才会把它设回未发状态；
+如果false，那么Trigger后，事件处于已发状态，直到当某处收到事件后（Wait方法监听的地方），系统会将状态自动设回未发状态。
+一般主要就用2方法，Trigger（触发，发送）和Wait（等待，监听）。
+Wait方法会阻塞，一般会阻塞到收到事件为止，或者传个时间参数，阻塞一段时间，期间如果收到事件，那么返回true，否则返回false。
+------
+https://docs.microsoft.com/en-us/windows/win32/sync/using-event-objects
+https://docs.microsoft.com/en-us/previous-versions/ms959948(v=msdn.10)
+1，同一个event，可以在多个地方监听（发送该事件时，收到事件是什么顺序？）
+2，当要手动reset的event发送事件后，就处于已发状态。如果有多个地方监听事件，或者之后有新地方新加监听该事件，都会判定为
+事件已发，事情已经发生，可以后续工作。
+
+8，IQueuedWork
+接口类
+重要属性：
+无
+重要方法：
+virtual void DoThreadedWork() = 0;
+virtual void Abandon() = 0;
+
+9，class FQueuedThread : public FRunnable
+处理线程池里队列任务的类。继承自 FRunnable，所以它当然要重写接口，定义线程具体要执行什么。
+而这里具体要执行的就是，当线程空闲时，要执行池子里排队的任务
+重要属性：
+FEvent* DoWorkEvent = nullptr;								// 等待通知执行任务的event
+TAtomic<bool> TimeToDie { false };							// 标志线程是否需要退出
+IQueuedWork* volatile QueuedWork = nullptr;					// 当前具体要执行什么任务的对象
+class FQueuedThreadPoolBase* OwningThreadPool = nullptr;	// 属于哪个线程池
+FRunnableThread* Thread = nullptr;							// 代表线程的对象
+重要方法：
+virtual uint32 Run() override;				// 重写接口，实现线程执行任务的逻辑
+virtual bool Create(class FQueuedThreadPoolBase* InPool,uint32 InStackSize = 0,EThreadPriority ThreadPriority=TPri_Normal);		// 初始化本身，并创建实际的线程
+bool KillThread();							// 退出线程
+void DoWork(IQueuedWork* InQueuedWork);		// 通知线程执行任务，任务执行完，线程会重新加入可用池子里
+
+10，FQueuedThreadPool
+虚基类，线程池的接口，需要重写这些接口实现线程池。
+都是些很基本的接口，创建池子，销毁池子，添加任务，尝试撤销任务等，需要继承实现这些接口的逻辑。
+重要属性：
+static CORE_API uint32 OverrideStackSize;
+重要方法：
+static CORE_API FQueuedThreadPool* Allocate();
+virtual bool Create(uint32 InNumQueuedThreads, uint32 StackSize = (32 * 1024), EThreadPriority ThreadPriority = TPri_Normal, const TCHAR* Name = TEXT("UnknownThreadPool")) = 0;
+virtual void Destroy() = 0;
+virtual void AddQueuedWork(IQueuedWork* InQueuedWork) = 0;
+virtual bool RetractQueuedWork(IQueuedWork* InQueuedWork) = 0;
+virtual int32 GetNumThreads() const = 0;
+
+11，class FQueuedThreadPoolBase : public FQueuedThreadPool
+继承自 FQueuedThreadPool，线程池的实现。
+重要属性：
+TArray<IQueuedWork*> QueuedWork;
+TArray<FQueuedThread*> QueuedThreads;
+TArray<FQueuedThread*> AllThreads;
+FCriticalSection* SynchQueue;
+bool TimeToDie;
+重要方法：
+IQueuedWork* ReturnToPoolOrGetNextJob(FQueuedThread* InQueuedThread);
+
+12，template<typename TTask> class FAsyncTask : private IQueuedWork
+模板类！继承自 IQueuedWork，那就是传给线程池的任务，但为什么不用户自己直接继承 IQueuedWork，然后重写接口呢，
+而是又套多一层？我想原因只是UE想用户更容易的使用这个异步任务的系统吧。套多一层，自带了更多方便使用的方法。
+而用户要定义自己的逻辑，参考模板 TTask 就可以了，实际上用起来已经挺方便的了。
+重要属性：
+TTask Task;										// 模板，用户定义任务要执行的逻辑
+FThreadSafeCounter	WorkNotFinishedCounter;		// 可以判断任务是否进行中
+FEvent*				DoneEvent;					// 通知任务完成的event
+FQueuedThreadPool*	QueuedPool;					// 本任务使用的线程池
+重要方法：
+void StartSynchronousTask();
+void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool);
+void EnsureCompletion(bool bDoWorkOnThisThreadIfNotStarted = true);
+bool Cancel();
+bool WaitCompletionWithTimeout(float TimeLimitSeconds);
+bool IsDone();
+bool IsWorkDone() const;
+bool IsIdle() const;
+
+13，template<typename TTask> class FAutoDeleteAsyncTask : private IQueuedWork
+基本同上，不过它能执行完自动销毁自己。
+
+
+目前未搞清楚的东东
+"饥饿"
+"虚拟内存"
+"用户模式,内核模式"
+FPlatformMisc::MemoryBarrier();//目前唔知咩嚟，好似同CPU执行的指令的顺序有关
+
+
+
+
+
+普通线程流程
+1，创建流程
+/**
+* 新建一个线程
+* 主要参数：
+* 1，InRunnable；线程具体执行逻辑FRunnable对象
+* 2，ThreadName；线程名字，不传的话，在Windows平台默认是"Unnamed UE4"，不是线程的唯一标识
+* 3，InStackSize // TODO
+* 4，InThreadPri // TODO
+* 5, InThreadAffinityMask // TODO
+*/
+static FRunnableThread* FRunnableThread::Create(
+		class FRunnable* InRunnable,
+		const TCHAR* ThreadName,
+		uint32 InStackSize = 0,
+		EThreadPriority InThreadPri = TPri_Normal,
+		uint64 InThreadAffinityMask = FPlatformAffinity::GetNoAffinityMask(),
+		EThreadCreateFlags InCreateFlags = EThreadCreateFlags::None);
+		
+		/**
+		* 使用该接口创建 FRunnableThread，
+		* 例如在Windows平台会new一个 FRunnableThreadWin，
+		* 但实际的线程还没创建，只是构造了一个 FRunnableThreadWin 对象
+		*/
+		FPlatformProcess::CreateRunnableThread();
+		
+		/**
+		* 初始化上面构造的FRunnableThread对象，
+		* 
+		* 主要参数：
+		* 1，NewThread；要初始化的 FRunnableThread 对象
+		*/
+		static void FRunnableThread::SetupCreatedThread(FRunnableThread*& NewThread,
+			class FRunnable* InRunnable,
+			const TCHAR* ThreadName,
+			uint32 InStackSize,
+			EThreadPriority InThreadPri,
+			uint64 InThreadAffinityMask,
+			EThreadCreateFlags InCreateFlags);
+			
+			/**
+			* 这里开始调用系统接口创建实际的线程，并初始化FRunnableThread对象里的一些属性
+			*/
+			virtual bool FRunnableThread::CreateInternal( FRunnable* InRunnable,
+				const TCHAR* InThreadName,
+				uint32 InStackSize = 0,
+				EThreadPriority InThreadPri = TPri_Normal,
+				uint64 InThreadAffinityMask = 0, 
+				EThreadCreateFlags InCreateFlags = EThreadCreateFlags::None) = 0;
+				
+				/**
+				* 创建一个同步初始流程的event
+				*/
+				ThreadInitSyncEvent	= FPlatformProcess::GetSynchEventFromPool(true);
+				
+				/**
+				* 调用系统接口创建实际的线程（默认创建的线程都是normal优先级）
+				* 主要参数：
+				* 1，LPTHREAD_START_ROUTINE lpStartAddress；线程执行的函数
+				* 2，LPVOID lpParameter；传给线程的参数
+				* 3，DWORD dwCreationFlags；可以提供一些创建线程的选项
+				*							CREATE_SUSPENDED选项，指定线程以暂停的状态创建，直到调用ResumeThread方法让它恢复，
+				*							实际如果不用CREATE_SUSPENDED选项，线程就会以可运行状态创建，可以在CreateThread方法
+				*							返回前就会开始运行。
+				*							STACK_SIZE_PARAM_IS_A_RESERVATION选项 // TODO
+				* 4，LPDWORD lpThreadId；线程id，唯一标识
+				* 结果：
+				* 1，HANDLE；返回线程句柄
+				*/
+				Thread = CreateThread(NULL, InStackSize, _ThreadProc, this, STACK_SIZE_PARAM_IS_A_RESERVATION | CREATE_SUSPENDED, (::DWORD *)&ThreadID);
+				
+				/**
+				* 恢复暂停的线程
+				*/
+				ResumeThread(Thread);
+				
+				/**
+				* 同步初始化流程的event，这里wait住，等初始化流程后trigger（会阻塞主线程）
+				*/
+				ThreadInitSyncEvent->Wait(INFINITE);
+				
+				/**
+				* 设置线程优先级（这里有个疑惑，为什么不在ResumeThread前设置优先级//TODO）
+				*/
+				SetThreadPriority(InThreadPri);
+				
+				/**
+				* 回收event
+				*/
+				FPlatformProcess::ReturnSynchEventToPool(ThreadInitSyncEvent);
+				ThreadInitSyncEvent = nullptr;
+			
+			/**
+			* Called after the internal thread is created so it can register debug information
+			* 初始化FRunnableThread对象后执行的方法,目前没什么东西,只是加了一些调试用的逻辑
+			*/
+			void PostCreate(EThreadPriority ThreadPriority);
+			
+2，执行流程
+static ::DWORD STDCALL _ThreadProc( LPVOID pThis )
+	/**
+	* 线程管理类记下新建的线程
+	* 为什么这里才用管理类记下，可能是因为 AddThread 方法里面调的 Trace::ThreadRegister 方法需要在新建的该线程里调才行
+	*/
+	FThreadManager::Get().AddThread(ThisThread->GetThreadID(), ThisThread);
+	
+	/**
+	* 具体执行流程逻辑
+	*/
+	return ThisThread->GuardedRun();
+		
+		/**
+		* //TODO
+		*/
+		FPlatformProcess::SetThreadAffinityMask(ThreadAffinityMask);
+		
+		/**
+		* 里面应该是调系统接口注册线程的名字和描述之类的信息
+		*/
+		FPlatformProcess::SetThreadName(*ThreadName);
+		
+		/**
+		* 执行逻辑
+		*/
+		ExitCode = Run();
+			
+			/**
+			* 执行 FRunnable 对象定义的初始化逻辑
+			*/
+			Runnable->Init()
+			
+			/**
+			* 执行完初始化后，同步初始化流程的event trigger一下，通知主线程，新建线程的初始化流程已执行完
+			*/
+			ThreadInitSyncEvent->Trigger();
+			
+			/**
+			* 执行 FRunnable 对象定义的具体工作的逻辑
+			*/
+			ExitCode = Runnable->Run();
+			
+			/**
+			* 执行 FRunnable 对象定义的线程退出的逻辑
+			*/
+			Runnable->Exit();
+			
+3，析构流程
+if (Thread)
+{
+	delete Thread;
+		/**
+		* 这里会调 FRunnableThread 的析构函数
+		* 实际主要就是需要清掉线程管理器里该线程的信息
+		*	FRunnableThread::~FRunnableThread()
+		*	{
+		*		if (!IsEngineExitRequested())
+		*		{
+		*			FThreadManager::Get().RemoveThread(this);
+		*		}
+		*	}
+		*/
+	
+	Thread = nullptr;
+}
+
+
+
+AsyncTask流程
+1，线程执行任务流程
+uint32 FQueuedThread::Run()
+{
+	// TimeToDie 有原子性，如果是 true 的话，说明线程需要退出
+	while (!TimeToDie.Load(EMemoryOrder::Relaxed))
+	{
+		// We need to wait for shorter amount of time
+		bool bContinueWaiting = true;
+
+		if (bContinueWaiting)
+		{
+			DoWorkEvent->Wait();		// 等待执行任务的通知
+		}
+
+		IQueuedWork* LocalQueuedWork = QueuedWork;		// 当前要执行的任务，具体逻辑由用户定义的
+		QueuedWork = nullptr;
+		FPlatformMisc::MemoryBarrier();
+		
+		/**
+		* 这里check了一下，
+		* 可以看出有任务当然需要去执行任务，
+		* 而 TimeToDie 为 true，就是需要退出线程，也会先把当前的任务做完再退出（有点疑惑，防止死锁？但不执行应该不会死锁吧//TODO）
+		*/
+		check(LocalQueuedWork || TimeToDie.Load(EMemoryOrder::Relaxed)); // well you woke me up, where is the job or termination request?
+		
+		while (LocalQueuedWork)
+		{
+			// Tell the object to do the work
+			LocalQueuedWork->DoThreadedWork();							// 执行任务
+			// Let the object cleanup before we remove our ref to it
+			LocalQueuedWork = OwningThreadPool->ReturnToPoolOrGetNextJob(this);		//TODO
+		}
+	}
+	return 0;
+}
+
+2，添加任务流程
+/**
+* 执行异步任务
+* 主要参数：
+* FQueuedThreadPool* InQueuedPool		// 用该线程池执行本异步任务，默认是 GThreadPool
+*/
+void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
+{
+	/**
+	* 执行任务
+	* 主要参数：
+	* bool bForceSynchronous				// 是否同步执行
+	* FQueuedThreadPool* InQueuedPool		// 使用的线程池
+	*/
+	Start(false, InQueuedPool);
+		FPlatformMisc::MemoryBarrier();
+		CheckIdle();  // can't start a job twice without it being completed first
+		WorkNotFinishedCounter.Increment();
+		QueuedPool = InQueuedPool;
+		if (bForceSynchronous)
+		{
+			QueuedPool = 0;
+		}
+		if (QueuedPool)
+		{
+			if (!DoneEvent)
+			{
+				DoneEvent = FPlatformProcess::GetSynchEventFromPool(true);
+			}
+			DoneEvent->Reset();
+			QueuedPool->AddQueuedWork(this);
+		}
+		else 
+		{
+			// we aren't doing async stuff
+			DestroyEvent();
+			DoWork();
+		}
+}
+
+
+
+

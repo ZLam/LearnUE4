@@ -8,7 +8,11 @@ FTestNonSyncThreadRunnableOne::FTestNonSyncThreadRunnableOne()
 
 FTestNonSyncThreadRunnableOne::~FTestNonSyncThreadRunnableOne()
 {
-	
+	if (Thread)
+	{
+		delete Thread;
+		Thread = nullptr;
+	}
 }
 
 bool FTestNonSyncThreadRunnableOne::Init()
@@ -54,7 +58,11 @@ FTestNonSyncThreadRunnableTwo::FTestNonSyncThreadRunnableTwo()
 
 FTestNonSyncThreadRunnableTwo::~FTestNonSyncThreadRunnableTwo()
 {
-	
+	if (Thread)
+	{
+		delete Thread;
+		Thread = nullptr;
+	}
 }
 
 bool FTestNonSyncThreadRunnableTwo::Init()
