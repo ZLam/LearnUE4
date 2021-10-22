@@ -35,10 +35,10 @@ https://www.zhihu.com/question/25532384
 重要属性：
 没有
 重要方法：（基本上这些方法都需要用户去定义自己逻辑的）
-virtual bool Init();
-virtual uint32 Run() = 0;
-virtual void Stop();
-virtual void Exit();
+virtual bool Init();			// 初始化的接口
+virtual uint32 Run() = 0;		// 运行逻辑的接口
+virtual void Stop();			// 停止运行的接口（该接口主要是用户定义怎样去结束当前运行中的逻辑）
+virtual void Exit();			// 结束运行的接口（该接口主要是用户定义结束后要执行的逻辑）
 
 2，FRunnableThread
 FRunnableThread也是一个虚基类，表示线程的类，管理一个线程的生命周期
@@ -64,7 +64,7 @@ virtual bool CreateInternal( FRunnable* InRunnable, const TCHAR* InThreadName,
 	EThreadCreateFlags InCreateFlags = EThreadCreateFlags::None) = 0;					// 创建实际的线程
 virtual void SetThreadPriority( EThreadPriority NewPriority ) = 0;						// 设置线程优先度
 virtual void Suspend( bool bShouldPause = true ) = 0;									// 暂停/恢复 线程
-virtual bool Kill( bool bShouldWait = true ) = 0;										// 退出线程，会尝试调 FRunnable 的 Stop 方法，用用户定义的逻辑去停止线程执行，然后 bShouldWait 为 true 的话，一直等待线程执行完毕，不然马上退出可能会有类似死锁的问题
+virtual bool Kill( bool bShouldWait = true ) = 0;										// 退出线程，会尝试调 FRunnable 的 Stop 方法，用用户定义的逻辑去停止线程执行，然后 bShouldWait 为 true 的话，一直等待线程执行完毕，不然马上退出可能会有死锁的问题
 virtual void WaitForCompletion() = 0;													// 等待线程执行完
 
 3，FPlatformProcess
@@ -95,13 +95,13 @@ uint32 GuardedRun();										// 线程的执行的主要流程
 uint32 Run();												// 执行 FRunnable 对象里用户定义的逻辑
 
 5，FThreadManager
-线程管理类
+线程管理类，单例
 目前看来就是有个容器，有个map存着FRunnableThread对象用threadId作为key
 重要属性：
-TMap<uint32, class FRunnableThread*, TInlineSetAllocator<256>> Threads;
+TMap<uint32, class FRunnableThread*, TInlineSetAllocator<256>> Threads;			// 储存着所有线程，一个线程id对应一个线程对象
 重要方法：
-void AddThread(uint32 ThreadId, class FRunnableThread* Thread);					// 添加线程信息
-void RemoveThread(class FRunnableThread* Thread);								// 移除线程信息
+void AddThread(uint32 ThreadId, class FRunnableThread* Thread);					// 添加线程，并向系统注册了些线程信息（名字，描述之类的）
+void RemoveThread(class FRunnableThread* Thread);								// 移除线程
 static const FString& GetThreadName(uint32 ThreadId)							// 获取线程名字
 void ForEachThread(TFunction<void(uint32, class FRunnableThread*)> Func);		// 遍历线程
 
@@ -142,18 +142,18 @@ https://docs.microsoft.com/en-us/previous-versions/ms959948(v=msdn.10)
 事件已发，事情已经发生，可以后续工作。
 
 8，IQueuedWork
-接口类
+线程池任务的接口类
 重要属性：
 无
 重要方法：
-virtual void DoThreadedWork() = 0;
-virtual void Abandon() = 0;
+virtual void DoThreadedWork() = 0;			// 任务逻辑的接口
+virtual void Abandon() = 0;					// 还没开始就放弃任务的接口（目前一般会发生在线程池销毁时）
 
 9，class FQueuedThread : public FRunnable
-处理线程池里队列任务的类。继承自 FRunnable，所以它当然要重写接口，定义线程具体要执行什么。
+处理线程池里任务队列的类。继承自 FRunnable，所以它当然要重写接口，定义线程具体要执行什么。
 而这里具体要执行的就是，当线程空闲时，要执行池子里排队的任务
 重要属性：
-FEvent* DoWorkEvent = nullptr;								// 等待通知执行任务的event
+FEvent* DoWorkEvent = nullptr;								// 等待执行任务通知的event
 TAtomic<bool> TimeToDie { false };							// 标志线程是否需要退出
 IQueuedWork* volatile QueuedWork = nullptr;					// 当前具体要执行什么任务的对象
 class FQueuedThreadPoolBase* OwningThreadPool = nullptr;	// 属于哪个线程池
@@ -162,34 +162,34 @@ FRunnableThread* Thread = nullptr;							// 代表线程的对象
 virtual uint32 Run() override;				// 重写接口，实现线程执行任务的逻辑
 virtual bool Create(class FQueuedThreadPoolBase* InPool,uint32 InStackSize = 0,EThreadPriority ThreadPriority=TPri_Normal);		// 初始化本身，并创建实际的线程
 bool KillThread();							// 退出线程
-void DoWork(IQueuedWork* InQueuedWork);		// 通知线程执行任务，任务执行完，线程会重新加入可用池子里
+void DoWork(IQueuedWork* InQueuedWork);		// 通知线程执行任务，任务执行完，线程会重新加入可用队列里
 
 10，FQueuedThreadPool
 虚基类，线程池的接口，需要重写这些接口实现线程池。
 都是些很基本的接口，创建池子，销毁池子，添加任务，尝试撤销任务等，需要继承实现这些接口的逻辑。
 重要属性：
-static CORE_API uint32 OverrideStackSize;
+static CORE_API uint32 OverrideStackSize;						// 静态变量，如果不等于0，初始化创建线程时就用该值作为堆栈大小
 重要方法：
-static CORE_API FQueuedThreadPool* Allocate();
-virtual bool Create(uint32 InNumQueuedThreads, uint32 StackSize = (32 * 1024), EThreadPriority ThreadPriority = TPri_Normal, const TCHAR* Name = TEXT("UnknownThreadPool")) = 0;
-virtual void Destroy() = 0;
-virtual void AddQueuedWork(IQueuedWork* InQueuedWork) = 0;
-virtual bool RetractQueuedWork(IQueuedWork* InQueuedWork) = 0;
-virtual int32 GetNumThreads() const = 0;
+static CORE_API FQueuedThreadPool* Allocate();					// 静态方法，构建一个线程池
+virtual bool Create(uint32 InNumQueuedThreads, uint32 StackSize = (32 * 1024), EThreadPriority ThreadPriority = TPri_Normal, const TCHAR* Name = TEXT("UnknownThreadPool")) = 0;	// 初始化池子，并创建指定数量线程
+virtual void Destroy() = 0;										// 销毁线程池，主要都是一些清理逻辑
+virtual void AddQueuedWork(IQueuedWork* InQueuedWork) = 0;		// 添加任务
+virtual bool RetractQueuedWork(IQueuedWork* InQueuedWork) = 0;	// 尝试撤销任务
+virtual int32 GetNumThreads() const = 0;						// 获取池子当前线程数量
 
 11，class FQueuedThreadPoolBase : public FQueuedThreadPool
 继承自 FQueuedThreadPool，线程池的实现。
 重要属性：
-TArray<IQueuedWork*> QueuedWork;
-TArray<FQueuedThread*> QueuedThreads;
-TArray<FQueuedThread*> AllThreads;
-FCriticalSection* SynchQueue;
-bool TimeToDie;
+TArray<IQueuedWork*> QueuedWork;			// 任务队列
+TArray<FQueuedThread*> QueuedThreads;		// 空闲线程队列
+TArray<FQueuedThread*> AllThreads;			// 该池子里所有的线程
+FCriticalSection* SynchQueue;				// 临界区，需要同步一些对池子里的共有资源的操作
+bool TimeToDie;								// 标识线程池需要销毁
 重要方法：
-IQueuedWork* ReturnToPoolOrGetNextJob(FQueuedThread* InQueuedThread);
+IQueuedWork* ReturnToPoolOrGetNextJob(FQueuedThread* InQueuedThread);		// 获取下一个任务，如果没任务可做就把线程加回到空闲队列
 
 12，template<typename TTask> class FAsyncTask : private IQueuedWork
-模板类！继承自 IQueuedWork，那就是传给线程池的任务，但为什么不用户自己直接继承 IQueuedWork，然后重写接口呢，
+普通的异步任务，模板类！继承自 IQueuedWork，那就是传给线程池的任务，但为什么不用户自己直接继承 IQueuedWork，然后重写接口呢，
 而是又套多一层？我想原因只是UE想用户更容易的使用这个异步任务的系统吧。套多一层，自带了更多方便使用的方法。
 而用户要定义自己的逻辑，参考模板 TTask 就可以了，实际上用起来已经挺方便的了。
 重要属性：
@@ -198,17 +198,23 @@ FThreadSafeCounter	WorkNotFinishedCounter;		// 可以判断任务是否进行中
 FEvent*				DoneEvent;					// 通知任务完成的event
 FQueuedThreadPool*	QueuedPool;					// 本任务使用的线程池
 重要方法：
-void StartSynchronousTask();
-void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool);
-void EnsureCompletion(bool bDoWorkOnThisThreadIfNotStarted = true);
-bool Cancel();
-bool WaitCompletionWithTimeout(float TimeLimitSeconds);
-bool IsDone();
-bool IsWorkDone() const;
-bool IsIdle() const;
+void StartSynchronousTask();												// 用同步的方式执行任务
+void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool);	// 用异步的方式执行任务
+void EnsureCompletion(bool bDoWorkOnThisThreadIfNotStarted = true);			// 等待任务完成
+bool Cancel();																// 尝试撤销任务
+bool WaitCompletionWithTimeout(float TimeLimitSeconds);						// 指定时间内，等待任务完成
+bool IsDone();																// 判断任务是否完成，阻塞（跟下面的主要区别是，该方法能保证跑完任务完成的一些同步操作，这样你之后就可以销毁或重用这任务，但下面的方法保证不了任务完成的一些同步操作）
+bool IsWorkDone() const;													// 判断任务是否完成，不阻塞
+bool IsIdle() const;														// 是否idle状态（任务没开始或者已经完成了）
 
 13，template<typename TTask> class FAutoDeleteAsyncTask : private IQueuedWork
-基本同上，不过它能执行完自动销毁自己。
+自动销毁的异步任务，基本同上，不过它能执行完自动销毁自己。
+重要属性：
+TTask Task;
+重要方法：
+void StartSynchronousTask()
+void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
+
 
 
 目前未搞清楚的东东
@@ -216,7 +222,8 @@ bool IsIdle() const;
 "虚拟内存"
 "用户模式,内核模式"
 FPlatformMisc::MemoryBarrier();//目前唔知咩嚟，好似同CPU执行的指令的顺序有关
-
+堆栈
+只读的公共资源需要lock吗
 
 
 
@@ -418,14 +425,61 @@ uint32 FQueuedThread::Run()
 		{
 			// Tell the object to do the work
 			LocalQueuedWork->DoThreadedWork();							// 执行任务
+				/**
+				* 一般 LocalQueuedWork 都是 FAsyncTask 或者 FAutoDeleteAsyncTask，
+				* 下面以 FAsyncTask 作为例子，
+				* virtual void DoThreadedWork() override
+				* {
+				* 	DoWork();
+				* 		Task.DoWork();							// 执行用户定义的逻辑
+				* 		WorkNotFinishedCounter.Decrement();		// counter -1，回到idle状态
+				* 
+				* 	FinishThreadedWork();
+				* 		if (DoneEvent)
+				* 		{
+				* 			DoneEvent->Trigger();				// 通知任务已完成
+				* 		}
+				* }
+				*/
+
 			// Let the object cleanup before we remove our ref to it
-			LocalQueuedWork = OwningThreadPool->ReturnToPoolOrGetNextJob(this);		//TODO
+			LocalQueuedWork = OwningThreadPool->ReturnToPoolOrGetNextJob(this);
+				/**
+				* 功能跟函数名表达的一样
+				* 获取下一个任务，直到没有任务可以做的话，把该线程加回到空闲队列（记得之前添加任务，会把它从空闲队列删了吧）
+				* 主要参数：
+				* FQueuedThread* InQueuedThread；处理线程池里任务队列的对象
+				*/
+				IQueuedWork* Work = nullptr;
+				// Check to see if there is any work to be done
+				FScopeLock sl(SynchQueue);		// 需要lock一下，因为下面要对 QueuedWork 和 QueuedThreads 进行操作
+				/**
+				* 池子里还有任务需要做的话，就从任务队列的头部取一个任务出来，返回给线程之后执行
+				*/
+				if (QueuedWork.Num() > 0)
+				{
+					// Grab the oldest work in the queue. This is slower than
+					// getting the most recent but prevents work from being
+					// queued and never done
+					Work = QueuedWork[0];
+					// Remove it from the list so no one else grabs it
+					QueuedWork.RemoveAt(0, 1, /* do not allow shrinking */ false);
+				}
+				/**
+				* 没有可做的任务的话，就把 InQueuedThread 放回空闲队列等待收到任务
+				*/
+				if (!Work)
+				{
+					// There was no work to be done, so add the thread to the pool
+					QueuedThreads.Add(InQueuedThread);
+				}
+				return Work;
 		}
 	}
 	return 0;
 }
 
-2，添加任务流程
+2，异步任务执行流程
 /**
 * 执行异步任务
 * 主要参数：
@@ -441,30 +495,159 @@ void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
 	*/
 	Start(false, InQueuedPool);
 		FPlatformMisc::MemoryBarrier();
-		CheckIdle();  // can't start a job twice without it being completed first
-		WorkNotFinishedCounter.Increment();
-		QueuedPool = InQueuedPool;
+		CheckIdle();  // can't start a job twice without it being completed first	// check 一下，保证任务不在执行中状态
+		WorkNotFinishedCounter.Increment();		// counter +1，WorkNotFinishedCounter大于0表示正在执行任务
+		QueuedPool = InQueuedPool;				// 设置使用的线程池
 		if (bForceSynchronous)
 		{
 			QueuedPool = 0;
 		}
 		if (QueuedPool)
 		{
+			/**
+			* 异步执行流程
+			*/
 			if (!DoneEvent)
 			{
-				DoneEvent = FPlatformProcess::GetSynchEventFromPool(true);
+				DoneEvent = FPlatformProcess::GetSynchEventFromPool(true);		// 创建通知任务完成的event
 			}
-			DoneEvent->Reset();
+			DoneEvent->Reset();					// event会重复利用，所以要reset一下
+			/**
+			* 添加任务到线程池
+			* 主要参数：
+			* IQueuedWork* InQueuedWork；任务
+			*/
 			QueuedPool->AddQueuedWork(this);
+				/**
+				* 线程池标识要销毁的话，不要再添加任务
+				*/
+				if (TimeToDie)
+				{
+					InQueuedWork->Abandon();		// 该任务要放弃掉，不用执行
+					return;
+				}
+
+				// Check to see if a thread is available. Make sure no other threads
+				// can manipulate the thread pool while we do this.
+				//
+				// We pick a thread from the back of the array since this will be the
+				// most recently used thread and therefore the most likely to have
+				// a 'hot' cache for the stack etc (similar to Windows IOCP scheduling
+				// strategy). Picking from the back also happens to be cheaper since
+				// no memory movement is necessary.
+
+				check(SynchQueue);
+
+				FQueuedThread* Thread = nullptr;
+
+				{
+					FScopeLock sl(SynchQueue);		// 需要lock一下，因为下面要对公共资源 QueuedWork 进行操作
+					const int32 AvailableThreadCount = QueuedThreads.Num();		// 当前空闲的线程数量
+
+					/**
+					* 如果当前没有线程空闲，那么先把任务放进任务队列里，然后就可以退出执行该函数了
+					*/
+					if (AvailableThreadCount == 0)
+					{
+						// No thread available, queue the work to be done
+						// as soon as one does become available
+						QueuedWork.Add(InQueuedWork);
+
+						return;
+					}
+
+					/**
+					* 如果当前有线程空闲，优先从空闲线程队列尾部取一个线程出来执行任务
+					*/
+					const int32 ThreadIndex = AvailableThreadCount - 1;
+					Thread = QueuedThreads[ThreadIndex];
+					// Remove it from the list so no one else grabs it
+					QueuedThreads.RemoveAt(ThreadIndex, 1, /* do not allow shrinking */ false);		// 注意这里 bAllowShrinking == false
+				}
+
+				/**
+				* 通知线程执行任务
+				* 主要参数：
+				* IQueuedWork* InQueuedWork；任务
+				*/
+				// Tell our chosen thread to do the work
+				Thread->DoWork(InQueuedWork);
+					QueuedWork = InQueuedWork;
+					FPlatformMisc::MemoryBarrier();
+					// Tell the thread to wake up and do its job
+					DoWorkEvent->Trigger();		// 通知有任务要执行（具体看上面的线程执行任务流程）
 		}
 		else 
 		{
+			/**
+			* 同步执行流程
+			*/
 			// we aren't doing async stuff
+			/**
+			* 回收event
+			*/
 			DestroyEvent();
+			/**
+			* 执行用户定义的任务
+			*/
 			DoWork();
+				Task.DoWork();			// Task 是用户自己根据模板定义的类的实例，执行 DoWork 接口执行用户定义的任务
+				WorkNotFinishedCounter.Decrement();		// counter -1，回到idle状态
 		}
 }
 
-
-
+3，池子的创建
+/**
+* 发布后的版本有3个池子，编辑器下还会多1个专给编辑器下用
+*/
+/** The global thread pool */
+FQueuedThreadPool* GThreadPool = nullptr;						// 用于一般的任务
+FQueuedThreadPool* GIOThreadPool = nullptr;						// 用于IO任务
+FQueuedThreadPool* GBackgroundPriorityThreadPool = nullptr;		// 用于一些低优先级的后台任务
+#if WITH_EDITOR
+FQueuedThreadPool* GLargeThreadPool = nullptr;					// 编辑器专用
+#endif
+/**
+* LaunchEngineLoop.cpp
+* 池子的创建基本就在这里了，基本上就是调用对应平台的 FPlatformMisc 里的方法获得不同池子对应要创建对应多少条线程，
+* 还有指定不同池子使用的优先级
+*/
+int32 FEngineLoop::PreInitPreStartupScreen(const TCHAR* CmdLine)
+{
+	...
+	{
+		GThreadPool = FQueuedThreadPool::Allocate();
+		int32 NumThreadsInThreadPool = FPlatformMisc::NumberOfWorkerThreadsToSpawn();
+		// we are only going to give dedicated servers one pool thread
+		if (FPlatformProperties::IsServerOnly())
+		{
+			NumThreadsInThreadPool = 1;
+		}
+		verify(GThreadPool->Create(NumThreadsInThreadPool, StackSize * 1024, TPri_SlightlyBelowNormal, TEXT("ThreadPool")));
+	}
+	{
+		GBackgroundPriorityThreadPool = FQueuedThreadPool::Allocate();
+		int32 NumThreadsInThreadPool = 2;
+		if (FPlatformProperties::IsServerOnly())
+		{
+			NumThreadsInThreadPool = 1;
+		}
+		verify(GBackgroundPriorityThreadPool->Create(NumThreadsInThreadPool, StackSize * 1024, TPri_Lowest, TEXT("BackgroundThreadPool")));
+	}
+	...
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		{
+			SCOPED_BOOT_TIMING("GIOThreadPool->Create");
+			GIOThreadPool = FQueuedThreadPool::Allocate();
+			int32 NumThreadsInThreadPool = FPlatformMisc::NumberOfIOWorkerThreadsToSpawn();
+			if (FPlatformProperties::IsServerOnly())
+			{
+				NumThreadsInThreadPool = 2;
+			}
+			verify(GIOThreadPool->Create(NumThreadsInThreadPool, 96 * 1024, TPri_AboveNormal, TEXT("IOThreadPool")));
+		}
+	}
+	...
+}
 

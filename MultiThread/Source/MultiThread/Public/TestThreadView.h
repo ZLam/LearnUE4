@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Async/AsyncWork.h"
+#include "TestTaskGraph.h"
 #include "TestThreadView.generated.h"
 
 class UButton;
@@ -81,6 +82,16 @@ protected:
 	UPROPERTY()
 	UButton* Btn_TestAutoDelAsyncTask;
 
+	UPROPERTY()
+	UButton* Btn_TestTaskGraph;
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void TestAsyncLoadFile2Str(const FString& InFilePath);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void AsyncLoadFile2Str_Callback(const FString& InFileContent);
+
 protected:
 	virtual void NativeOnInitialized() override;
 
@@ -121,6 +132,9 @@ protected:
 
 	UFUNCTION()
 	void Btn_TestAutoDelAsyncTask_Callback();
+
+	UFUNCTION()
+	void Btn_TestTaskGraph_Callback();
 
 	void CleanupTestThread();
 

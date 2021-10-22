@@ -107,6 +107,14 @@ void UTestThreadView::NativeOnInitialized()
 		BtnCallback.BindUFunction(this, TEXT("Btn_TestAutoDelAsyncTask_Callback"));
 		Btn_TestAutoDelAsyncTask->OnClicked.Add(BtnCallback);
 	}
+
+	Btn_TestTaskGraph = Cast<UButton>(GetWidgetFromName(TEXT("Btn_TestTaskGraph")));
+	if (Btn_TestTaskGraph)
+	{
+		FScriptDelegate BtnCallback;
+		BtnCallback.BindUFunction(this, TEXT("Btn_TestTaskGraph_Callback"));
+		Btn_TestTaskGraph->OnClicked.Add(BtnCallback);
+	}
 }
 
 void UTestThreadView::NativeDestruct()
@@ -182,11 +190,22 @@ void UTestThreadView::Btn_GetNonSyncThreadResult_Callback()
 
 void UTestThreadView::Btn_TestStatic_Callback()
 {
-	for (int32 i = 0; i < 3; i++)
+	// for (int32 i = 0; i < 3; i++)
+	// {
+	// 	FTestStatic t;
+	// 	t.Run();
+	// }
+
+	TArray<int32> tArr;
+	tArr.Empty(10);
+	UE_LOG(LogTemp, Warning, TEXT("111 %d"), tArr.Num());
+	for (int32 i = 0; i < 10; i++)
 	{
-		FTestStatic t;
-		t.Run();
+		tArr.Add(i + 1);
 	}
+	UE_LOG(LogTemp, Warning, TEXT("222 %d"), tArr.Num());
+	tArr.RemoveAt(tArr.Num() - 1, 1, false);
+	UE_LOG(LogTemp, Warning, TEXT("333 %d"), tArr.Num());
 }
 
 void UTestThreadView::Btn_TestInitThread_Callback()
@@ -208,6 +227,18 @@ void UTestThreadView::Btn_TestAutoDelAsyncTask_Callback()
 {
 	(new FAutoDeleteAsyncTask<FTestAutoDelAsyncTask>())->StartBackgroundTask();
 	UE_LOG(LogTemp, Warning, TEXT("=== UTestThreadView::Btn_TestAutoDelAsyncTask_Callback ==="));
+}
+
+void UTestThreadView::Btn_TestTaskGraph_Callback()
+{
+	// TGraphTask<FTaskLoadFile2Str>::CreateTask().ConstructAndDispatchWhenReady();
+}
+
+void UTestThreadView::TestAsyncLoadFile2Str(const FString& InFilePath)
+{
+	FDelegateLoadFile2Str TmpDelegate;
+	TmpDelegate.BindUFunction(this, TEXT("AsyncLoadFile2Str_Callback"));
+	TGraphTask<FTaskLoadFile2Str>::CreateTask().ConstructAndDispatchWhenReady(InFilePath, TmpDelegate);
 }
 
 void UTestThreadView::CleanupTestThread()
