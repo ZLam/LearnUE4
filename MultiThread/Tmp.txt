@@ -215,6 +215,21 @@ TTask Task;
 void StartSynchronousTask()
 void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
 
+14，FTaskGraphInterface
+
+15，class FTaskGraphImplementation : public FTaskGraphInterface
+
+16，FBaseGraphTask
+
+17，class TGraphTask final : public FBaseGraphTask
+
+18，FGraphEvent
+
+19，typedef TRefCountPtr<class FGraphEvent> FGraphEventRef;
+
+20，FConstructor
+
+
 
 
 目前未搞清楚的东东
@@ -222,8 +237,12 @@ void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
 "虚拟内存"
 "用户模式,内核模式"
 FPlatformMisc::MemoryBarrier();//目前唔知咩嚟，好似同CPU执行的指令的顺序有关
-堆栈
+堆栈究竟是什么
 只读的公共资源需要lock吗
+sizeof(Class)点计的
+Placement new operator in C++
+模板多参数
+右值引用
 
 
 
