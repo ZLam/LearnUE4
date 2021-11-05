@@ -196,16 +196,21 @@ void UTestThreadView::Btn_TestStatic_Callback()
 	// 	t.Run();
 	// }
 
-	TArray<int32> tArr;
-	tArr.Empty(10);
-	UE_LOG(LogTemp, Warning, TEXT("111 %d"), tArr.Num());
-	for (int32 i = 0; i < 10; i++)
-	{
-		tArr.Add(i + 1);
-	}
-	UE_LOG(LogTemp, Warning, TEXT("222 %d"), tArr.Num());
-	tArr.RemoveAt(tArr.Num() - 1, 1, false);
-	UE_LOG(LogTemp, Warning, TEXT("333 %d"), tArr.Num());
+	// TArray<int32> tArr;
+	// tArr.Empty(10);
+	// UE_LOG(LogTemp, Warning, TEXT("111 %d"), tArr.Num());
+	// for (int32 i = 0; i < 10; i++)
+	// {
+	// 	tArr.Add(i + 1);
+	// }
+	// UE_LOG(LogTemp, Warning, TEXT("222 %d"), tArr.Num());
+	// tArr.RemoveAt(tArr.Num() - 1, 1, false);
+	// UE_LOG(LogTemp, Warning, TEXT("333 %d"), tArr.Num());
+
+	int32 n = int32(1) / int32(3);
+	UE_LOG(LogTemp, Warning, TEXT("%d"), n);
+	n = int32(4) / int32(3);
+	UE_LOG(LogTemp, Warning, TEXT("%d"), n);
 }
 
 void UTestThreadView::Btn_TestInitThread_Callback()
