@@ -12,6 +12,50 @@ Placement new operator in C++
 thread_local关键字
 lockfree的概念
 
+{ PPT 流程
+	1，开始
+	2，概述
+		2.1，普通线程特点（ FRunnable ， FRunnableThread ， FRunnableThreadWin ， FThreadManager ）
+			RunnableThread 是像我们平时使用多线程一样，真正创建一个线程去执行任务的。我们可以继承 Runnable 重写这4个接口来实现自己的逻辑。
+			真正表示线程的是 RunnableThread 类。它控制线程的生命周期。实际不同平台会继承它来实现创建线程的逻辑。
+			例如 Windows 平台会有个 RunnableThreadWin 。
+			ThreadManager 主要里面有个map来存储一个线程id对应一个线程对象。
+		2.2，AsyncTask特点（ IQueuedWork ， FQueuedThread ， FQueuedThreadPoolBase ， FAsyncTask ）
+			引擎在初始化时会创建多个线程池来处理任务。池子的基类是 QueuedThreadPool , 实现是 QueuedThreadPoolBase ，
+			池子里线程的类型是 QueuedThread ，实际是继承自 Runnable ，真正表示线程的是里面的 RunnableThread ，
+			池子里任务的类型都是 QueuedWork ，而我们实际用的是 AsyncTask ，它是个模板类，我们要定义自己的任务类来使用。
+		2.3，TaskGraph特点（ FTaskGraphImplementation ， TGraphTask ， FGraphEvent ， FWorkerThread ， FTaskThreadAnyThread ， FNamedTaskThread ）
+			跟线程池一样，里面有多个线程。线程的类型是 WorkerThread 。
+			WorkerThread 里的 TaskThreadBase 继承自 Runnable ， 会分为指定名字的线程或者未指定名字的线程，它们对任务的处理会不太一样，
+			任务的基类是 BaseGraphTask ，实际用的是 GraphTask ，也是模板类，我们要定义自己的任务类来使用。
+	3，普通线程
+		3.1，简单使用方式
+		3.2，执行流程分析
+			创建 RunnableThread 流程
+			RunnableThread 执行任务的流程
+			RunnableThread 析构
+	4，AsyncTask
+		4.1，简单使用方式
+		4.2，执行流程分析
+			创建线程池
+			QueuedThread 执行任务的流程
+			线程池添加任务的流程
+	5，TaskGraph
+		5.1，简单使用方式
+		5.2，执行流程分析
+			TaskGraph 会创建的线程数 5 + 3 * (8 - 1) 如果设备是8核的话。
+			TaskGraph 初始化 WorkerThread
+			TaskThreadAnyThread 未指定名字线程执行任务的流程
+			GraphTask 任务的执行，DispatchSubsequents 后续逻辑
+			GraphTask 初始化，AddSubsequents 后续逻辑
+			添加任务的逻辑
+	6，总结
+		6.1，3种方式的优劣
+		6.2，使用的注意事项
+	7，结束
+		7.1，引用
+}
+
 
 搞搞下发现要补习下进程和线程的概念
 0，首先，我们平时在用电脑，一般都会同时开着多个应用程序在使用。例如，听着spotify，挂着wechat，开着chrome，用着vscode写代码。所有东西
@@ -231,12 +275,28 @@ void StartSynchronousTask()
 void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
 
 14，FTaskGraphInterface
+虚基类，需要继承它重写对应接口来实现TaskGraph模块
 
 15，class FTaskGraphImplementation : public FTaskGraphInterface
+单例，TaskGraph模块的具体实现。
+重要属性：
+FWorkerThread		WorkerThreads[MAX_THREADS];
+int32				NumThreads;
+int32				NumNamedThreads;
+int32				NumTaskThreadSets;
+int32				NumTaskThreadsPerSet;
+ENamedThreads::Type LastExternalThread;
+FStallingTaskQueue<FBaseGraphTask, PLATFORM_CACHE_LINE_SIZE, 2>	IncomingAnyThreadTasks[MAX_THREAD_PRIORITIES];
 
 16，FBaseGraphTask
+重要属性：
+ENamedThreads::Type			ThreadToExecuteOn;
+FThreadSafeCounter			NumberOfPrerequistitesOutstanding;
 
 17，class TGraphTask final : public FBaseGraphTask
+重要属性：
+TAlignedBytes<sizeof(TTask),alignof(TTask)> TaskStorage;
+FGraphEventRef				Subsequents;
 
 18，FGraphEvent
 重要属性：
@@ -249,6 +309,10 @@ ENamedThreads::Type														ThreadToDoGatherOn;
 理解成类型是 FGraphEvent 的智能指针就ok了，指定的类型要自己实现下引用计数的逻辑
 
 20，FConstructor
+重要属性：
+TGraphTask*						Owner;
+const FGraphEventArray*			Prerequisites;
+ENamedThreads::Type				CurrentThreadIfKnown;
 
 21，FWorkerThread
 重要属性：
@@ -287,7 +351,7 @@ FCriticalSection StallForTuning;
 /**
 * 新建一个线程
 * 主要参数：
-* 1，InRunnable；线程具体执行逻辑FRunnable对象
+* 1，InRunnable；线程具体执行逻辑 FRunnable 对象
 * 2，ThreadName；线程名字，不传的话，在Windows平台默认是"Unnamed UE4"，不是线程的唯一标识
 * 3，InStackSize // TODO
 * 4，InThreadPri // TODO
@@ -303,13 +367,13 @@ static FRunnableThread* FRunnableThread::Create(
 		
 		/**
 		* 使用该接口创建 FRunnableThread，
-		* 例如在Windows平台会new一个 FRunnableThreadWin，
+		* 例如在Windows平台会new一个 FRunnableThreadWin ，
 		* 但实际的线程还没创建，只是构造了一个 FRunnableThreadWin 对象
 		*/
 		FPlatformProcess::CreateRunnableThread();
 		
 		/**
-		* 初始化上面构造的FRunnableThread对象，
+		* 初始化上面构造的 FRunnableThread 对象，
 		* 
 		* 主要参数：
 		* 1，NewThread；要初始化的 FRunnableThread 对象
@@ -323,7 +387,7 @@ static FRunnableThread* FRunnableThread::Create(
 			EThreadCreateFlags InCreateFlags);
 			
 			/**
-			* 这里开始调用系统接口创建实际的线程，并初始化FRunnableThread对象里的一些属性
+			* 这里开始调用系统接口创建实际的线程，并初始化 FRunnableThread 对象里的一些属性
 			*/
 			virtual bool FRunnableThread::CreateInternal( FRunnable* InRunnable,
 				const TCHAR* InThreadName,
@@ -539,7 +603,7 @@ uint32 FQueuedThread::Run()
 * 主要参数：
 * FQueuedThreadPool* InQueuedPool		// 用该线程池执行本异步任务，默认是 GThreadPool
 */
-void StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
+void FAsyncTask::StartBackgroundTask(FQueuedThreadPool* InQueuedPool = GThreadPool)
 {
 	/**
 	* 执行任务
@@ -706,210 +770,7 @@ int32 FEngineLoop::PreInitPreStartupScreen(const TCHAR* CmdLine)
 }
 
 TaskGraph流程
-1，创建任务流程
-/**
-*
-*/
-FGraphEventRef TGraphTask<TTask>::CreateTask().ConstructAndDispatchWhenReady();
-
-	/**
-	*
-	*/
-	static FConstructor TGraphTask<TTask>::CreateTask(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
-	{
-		int32 NumPrereq = Prerequisites ? Prerequisites->Num() : 0;
-		if (sizeof(TGraphTask) <= FBaseGraphTask::SMALL_TASK_SIZE)
-		{
-			void *Mem = FBaseGraphTask::GetSmallTaskAllocator().Allocate();
-
-			/**
-			*
-			*/
-			return FConstructor(new (Mem) TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), NumPrereq), Prerequisites, CurrentThreadIfKnown);
-
-				/**
-				* 构造 TGraphTask ，初始化了一些属性，但还没实际构造TTask
-				* 主要参数：
-				* FGraphEventRef InSubsequents
-				* int32 NumberOfPrerequistitesOutstanding
-				*/
-				TGraphTask<TTask>::TGraphTask(FGraphEventRef InSubsequents, int32 NumberOfPrerequistitesOutstanding)
-					: FBaseGraphTask(NumberOfPrerequistitesOutstanding)
-					, TaskConstructed(false)
-				{
-					Subsequents.Swap(InSubsequents);		// 注意这里是swap了一下
-				}
-
-				FBaseGraphTask(int32 InNumberOfPrerequistitesOutstanding)
-					: ThreadToExecuteOn(ENamedThreads::AnyThread)
-					, NumberOfPrerequistitesOutstanding(InNumberOfPrerequistitesOutstanding + 1) // TODO 目前唔知点解要+1 // + 1 is not a prerequisite, it is a lock to prevent it from executing while it is getting prerequisites, one it is safe to execute, call PrerequisitesComplete
-				{
-					checkThreadGraph(LifeStage.Increment() == int32(LS_Contructed));
-					LLM(InheritedLLMTag = FLowLevelMemTracker::bIsDisabled ? ELLMTag::Untagged : (ELLMTag)FLowLevelMemTracker::Get().GetActiveTag(ELLMTracker::Default));
-				}
-
-				/**
-				* 构造 FConstructor ，上面构造的 TGraphTask 对象作为参数传入
-				* 主要参数：
-				* TGraphTask* InOwner
-				* const FGraphEventArray* InPrerequisites
-				* ENamedThreads::Type InCurrentThreadIfKnown
-				*/
-				FConstructor::FConstructor(TGraphTask* InOwner, const FGraphEventArray* InPrerequisites, ENamedThreads::Type InCurrentThreadIfKnown)
-					: Owner(InOwner)
-					, Prerequisites(InPrerequisites)
-					, CurrentThreadIfKnown(InCurrentThreadIfKnown)
-				{
-				}
-
-		}
-		return FConstructor(new TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), NumPrereq), Prerequisites, CurrentThreadIfKnown);
-	}
-
-	/**
-	* 构造TTask，并调用 TGraphTask 设置前提条件的逻辑
-	*/
-	template<typename...T>
-	FGraphEventRef FConstructor::ConstructAndDispatchWhenReady(T&&... Args)
-	{
-		/**
-		* 注意这里又用了"Placement new"，指定了 Owner->TaskStorage 的地址
-		*/
-		new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Args)...);
-
-		/**
-		* 设置前提条件
-		*/
-		return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-	}
-
-/**
-* 主要参数：
-* const FGraphEventArray* Prerequisites = NULL
-* ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread
-*/
-FGraphEventRef TGraphTask<TTask>::Setup(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
-{
-	FGraphEventRef ReturnedEventRef = Subsequents; // very important so that this doesn't get destroyed before we return
-	SetupPrereqs(Prerequisites, CurrentThreadIfKnown, true);
-		/**
-		* 
-		*/
-		void TGraphTask<TTask>::SetupPrereqs(const FGraphEventArray* Prerequisites, ENamedThreads::Type CurrentThreadIfKnown, bool bUnlock)
-		{
-			checkThreadGraph(!TaskConstructed);
-			TaskConstructed = true;
-			TTask& Task = *(TTask*)&TaskStorage;
-			SetThreadToExecuteOn(Task.GetDesiredThread());		// 指定任务使用哪个线程执行
-			int32 AlreadyCompletedPrerequisites = 0;			// 已完成的前提条件的数量
-			if (Prerequisites)
-			{
-				for (int32 Index = 0; Index < Prerequisites->Num(); Index++)
-				{
-					FGraphEvent* Prerequisite = (*Prerequisites)[Index];
-					if (Prerequisite == nullptr || !Prerequisite->AddSubsequent(this))		// TODO 呢个 AddSubsequent 搞咩用的
-					{
-						AlreadyCompletedPrerequisites++;
-					}
-				}
-			}
-			PrerequisitesComplete(CurrentThreadIfKnown, AlreadyCompletedPrerequisites, bUnlock);
-				/**
-				*
-				*/
-				void FBaseGraphTask::PrerequisitesComplete(ENamedThreads::Type CurrentThread, int32 NumAlreadyFinishedPrequistes, bool bUnlock = true)
-				{
-					checkThreadGraph(LifeStage.Increment() == int32(LS_PrequisitesSetup));
-					int32 NumToSub = NumAlreadyFinishedPrequistes + (bUnlock ? 1 : 0); // the +1 is for the "lock" we set up in the constructor
-					if (NumberOfPrerequistitesOutstanding.Subtract(NumToSub) == NumToSub)		// 如果前提条件都已完成，就把任务交给线程执行
-					{
-						QueueTask(CurrentThread);
-							/**
-							*
-							*/
-							void FBaseGraphTask::QueueTask(ENamedThreads::Type CurrentThreadIfKnown)
-							{
-								checkThreadGraph(LifeStage.Increment() == int32(LS_Queued));
-
-								/**
-								*
-								*/
-								FTaskGraphInterface::Get().QueueTask(this, ThreadToExecuteOn, CurrentThreadIfKnown);
-							}
-					}
-				}
-		}
-
-	return ReturnedEventRef;
-}
-
-/**
-* 
-*/
-virtual void FTaskGraphImplementation::QueueTask(FBaseGraphTask* Task, ENamedThreads::Type ThreadToExecuteOn, ENamedThreads::Type InCurrentThreadIfKnown = ENamedThreads::AnyThread) final override
-{
-	TASKGRAPH_SCOPE_CYCLE_COUNTER(2, STAT_TaskGraph_QueueTask);
-
-	if (ENamedThreads::GetThreadIndex(ThreadToExecuteOn) == ENamedThreads::AnyThread)
-	{
-		TASKGRAPH_SCOPE_CYCLE_COUNTER(3, STAT_TaskGraph_QueueTask_AnyThread);
-		if (FTaskGraphInterface::IsMultithread())
-		{
-			uint32 TaskPriority = ENamedThreads::GetTaskPriority(Task->ThreadToExecuteOn);
-			int32 Priority = ENamedThreads::GetThreadPriorityIndex(Task->ThreadToExecuteOn);
-			if (Priority == (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift) && (!bCreatedBackgroundPriorityThreads || !ENamedThreads::bHasBackgroundThreads))
-			{
-				Priority = ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift; // we don't have background threads, promote to normal
-				TaskPriority = ENamedThreads::NormalTaskPriority >> ENamedThreads::TaskPriorityShift; // demote to normal task pri
-			}
-			else if (Priority == (ENamedThreads::HighThreadPriority >> ENamedThreads::ThreadPriorityShift) && (!bCreatedHiPriorityThreads || !ENamedThreads::bHasHighPriorityThreads))
-			{
-				Priority = ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift; // we don't have hi priority threads, demote to normal
-				TaskPriority = ENamedThreads::HighTaskPriority >> ENamedThreads::TaskPriorityShift; // promote to hi task pri
-			}
-			uint32 PriIndex = TaskPriority ? 0 : 1;
-			check(Priority >= 0 && Priority < MAX_THREAD_PRIORITIES);
-			{
-				TASKGRAPH_SCOPE_CYCLE_COUNTER(4, STAT_TaskGraph_QueueTask_IncomingAnyThreadTasks_Push);
-				int32 IndexToStart = IncomingAnyThreadTasks[Priority].Push(Task, PriIndex);
-				if (IndexToStart >= 0)
-				{
-					StartTaskThread(Priority, IndexToStart);
-				}
-			}
-			return;
-		}
-		else
-		{
-			ThreadToExecuteOn = ENamedThreads::GameThread;
-		}
-	}
-	ENamedThreads::Type CurrentThreadIfKnown;
-	if (ENamedThreads::GetThreadIndex(InCurrentThreadIfKnown) == ENamedThreads::AnyThread)
-	{
-		CurrentThreadIfKnown = GetCurrentThread();
-	}
-	else
-	{
-		CurrentThreadIfKnown = ENamedThreads::GetThreadIndex(InCurrentThreadIfKnown);
-		checkThreadGraph(CurrentThreadIfKnown == ENamedThreads::GetThreadIndex(GetCurrentThread()));
-	}
-	{
-		int32 QueueToExecuteOn = ENamedThreads::GetQueueIndex(ThreadToExecuteOn);
-		ThreadToExecuteOn = ENamedThreads::GetThreadIndex(ThreadToExecuteOn);
-		FTaskThreadBase* Target = &Thread(ThreadToExecuteOn);
-		if (ThreadToExecuteOn == ENamedThreads::GetThreadIndex(CurrentThreadIfKnown))
-		{
-			Target->EnqueueFromThisThread(QueueToExecuteOn, Task);
-		}
-		else
-		{
-			Target->EnqueueFromOtherThread(QueueToExecuteOn, Task);
-		}
-	}
-}
-
-2，初始化流程
+1，初始化流程
 /**
 * 位置： LaunchEngineLoop.cpp :: int32 FEngineLoop::PreInitPreStartupScreen(const TCHAR* CmdLine)
 */
@@ -963,7 +824,7 @@ FTaskGraphImplementation::FTaskGraphImplementation(int32)
 	
 	NumNamedThreads = LastExternalThread + 1;		// 指定名字的线程的数量
 
-	NumTaskThreadSets = 1 + bCreatedHiPriorityThreads + bCreatedBackgroundPriorityThreads;	// 优先级任务线程的种类的数量，一般就3种啦，低，普通，高
+	NumTaskThreadSets = 1 + bCreatedHiPriorityThreads + bCreatedBackgroundPriorityThreads;	// 优先级任务线程的种类的数量，一般就3种啦，普通，高，低
 
 	// if we don't have enough threads to allow all of the sets asked for, then we can't create what was asked for.
 	check(NumTaskThreadSets == 1 || FMath::Min<int32>(NumTaskThreads * NumTaskThreadSets + NumNamedThreads, MAX_THREADS) == NumTaskThreads * NumTaskThreadSets + NumNamedThreads);
@@ -1009,7 +870,7 @@ FTaskGraphImplementation::FTaskGraphImplementation(int32)
 	*
 	* 下面主要就是创建未指定名字的线程对象
 	* 其实未指定名字的线程就是处理优先度任务的线程
-	* 下面就会分低，普通，高去创建不同优先度的线程对象
+	* 下面就会分普通，高，低去创建不同优先度的线程对象
 	*/
 	const TCHAR* PrevGroupName = nullptr;
 	for (int32 ThreadIndex = LastExternalThread + 1; ThreadIndex < NumThreads; ThreadIndex++)
@@ -1090,4 +951,437 @@ FTaskGraphImplementation::FTaskGraphImplementation(int32)
 		WorkerThreads[ThreadIndex].bAttached = true;
 	}
 	Trace::ThreadGroupEnd();
+}
+
+2，线程执行逻辑
+/**
+* 无论是指定名字的线程和未指定名字的线程，他们都要创建自己的 FRunnable ，
+* 线程具体执行的逻辑如下都一样，只是指定名字和未指定名字的线程他们分别实现了不同的 ProcessTasksUntilQuit 接口
+*/
+virtual uint32 FTaskThreadBase::Run() override
+{
+	check(OwnerWorker); // make sure we are started up
+	ProcessTasksUntilQuit(0);
+	FMemory::ClearAndDisableTLSCachesOnCurrentThread();
+	return 0;
+}
+
+/**
+* 处理执行任务的逻辑，直到需要退出
+*/
+virtual void FTaskThreadAnyThread::ProcessTasksUntilQuit(int32 QueueIndex) override
+{
+	if (PriorityIndex != (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift))
+	{
+		FMemory::SetupTLSCachesOnCurrentThread();
+	}
+	check(!QueueIndex);
+	const bool bIsMultiThread = FTaskGraphInterface::IsMultithread();
+	do
+	{
+		ProcessTasks();
+		/**
+		* 
+		*/
+		uint64 FTaskThreadAnyThread::ProcessTasks()
+		{
+			TStatId StallStatId;
+			bool bCountAsStall = true;
+			uint64 ProcessedTasks = 0;
+
+			verify(++Queue.RecursionGuard == 1);
+			bool bDidStall = false;
+			while (1)
+			{
+				FBaseGraphTask* Task = FindWork();		// 查找有没有任务需要执行
+				if (!Task)
+				{
+					TestRandomizedThreads();
+					const bool bIsMultithread = FTaskGraphInterface::IsMultithread();
+					if (bIsMultithread)
+					{
+						FScopeCycleCounter Scope(StallStatId);
+						Queue.StallRestartEvent->Wait(MAX_uint32, bCountAsStall);		// 目前没找到任务要执行的话，就等待事件通知
+						bDidStall = true;
+					}
+					if (Queue.QuitForShutdown || !bIsMultithread)
+					{
+						break;
+					}
+					TestRandomizedThreads();
+					continue;
+				}
+				TestRandomizedThreads();
+				bDidStall = false;
+				Task->Execute(NewTasks, ENamedThreads::Type(ThreadId));		// 执行任务
+				ProcessedTasks++;
+				TestRandomizedThreads();
+				if (Queue.bStallForTuning)
+				{
+					{
+						FScopeLock Lock(&Queue.StallForTuning);
+					}
+				}
+			}
+			verify(!--Queue.RecursionGuard);
+			return ProcessedTasks;
+		}
+
+	} while (!Queue.QuitForShutdown && bIsMultiThread); // @Hack - quit now when running with only one thread.
+}
+
+3，执行 TTask
+void TGraphTask<TTask>::ExecuteTask(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread) override
+{
+	// TODO
+	if (TTask::GetSubsequentsMode() == ESubsequentsMode::TrackSubsequents)
+	{
+		Subsequents->CheckDontCompleteUntilIsEmpty(); // we can only add wait for tasks while executing the task
+	}
+	
+	// 执行 TTask 定义的逻辑后析构 TTask
+	TTask& Task = *(TTask*)&TaskStorage;
+	{
+		FScopeCycleCounter Scope(Task.GetStatId(), true); 
+		Task.DoTask(CurrentThread, Subsequents);
+		Task.~TTask();
+	}
+	
+	TaskConstructed = false;
+
+	// 如果本任务有后续，就是本任务是其他任务的前提条件，有依赖关系的话，就需要处理依赖关系的逻辑
+	if (TTask::GetSubsequentsMode() == ESubsequentsMode::TrackSubsequents)
+	{
+		FPlatformMisc::MemoryBarrier();
+		Subsequents->DispatchSubsequents(NewTasks, CurrentThread);
+			/**
+			* 告诉所有依赖本任务的后续任务，本任务已完成
+			*/
+			void FGraphEvent::DispatchSubsequents(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThreadIfKnown)
+			{
+				// TODO
+				if (EventsToWaitFor.Num())
+				{
+					// need to save this first and empty the actual tail of the task might be recycled faster than it is cleared.
+					FGraphEventArray TempEventsToWaitFor;
+					Exchange(EventsToWaitFor, TempEventsToWaitFor);
+					bool bSpawnGatherTask = true;
+					if (GTestDontCompleteUntilForAlreadyComplete)
+					{
+						bSpawnGatherTask = false;
+						for (FGraphEventRef& Item : TempEventsToWaitFor)
+						{
+							if (!Item->IsComplete())
+							{
+								bSpawnGatherTask = true;
+								break;
+							}
+						}
+					}
+					if (bSpawnGatherTask)
+					{
+						ENamedThreads::Type LocalThreadToDoGatherOn = ENamedThreads::AnyHiPriThreadHiPriTask;
+						if (!GIgnoreThreadToDoGatherOn)
+						{
+							LocalThreadToDoGatherOn = ThreadToDoGatherOn;
+						}
+						TGraphTask<FNullGraphTask>::CreateTask(FGraphEventRef(this), &TempEventsToWaitFor, CurrentThreadIfKnown).ConstructAndDispatchWhenReady(GET_STATID(STAT_FNullGraphTask_DontCompleteUntil), LocalThreadToDoGatherOn);
+						return;
+					}
+				}
+
+				/**
+				* 告诉所有的后续任务，本任务已完成，它们的未完成前提条件计数-1
+				* 首先，形成这个依赖关系是因为我们在构造后续任务时，
+				* 调用 static FConstructor TGraphTask<TTask>::CreateTask(const FGraphEventArray*, ENamedThreads::Type) 该方法，
+				* 可以传入 const FGraphEventArray* ，为本任务设置多个前置任务（实际是为多个前置任务记下这个后续任务），
+				* 而实现方式是，在 void TGraphTask<TTask>::SetupPrereqs(const FGraphEventArray*, ENamedThreads::Type, bool) 方法里，
+				* 遍历 const FGraphEventArray* 里每一个 FGraphEvent* ，
+				* 调用 bool FGraphEvent::AddSubsequent(class FBaseGraphTask*) 方法，把本任务自己传进去记下，
+				* 而注意的是，每一个 FGraphEvent* 的来处就是在构造前置任务时返回的，
+				* 所以实际的想法是在每个前置任务记下该任务，当前置任务完成时，告诉所有记下的后续任务，前置任务已完成，
+				* 然后后续任务的未完成计算-1，当减到0时，就说明后续任务的所有前置任务已完成，可以添加到队列等待执行
+				* 留意 TGraphTask 类里的 Subsequents 属性就是用来记下它有那些后续任务。
+				*/
+				SubsequentList.PopAllAndClose(NewTasks);
+				for (int32 Index = NewTasks.Num() - 1; Index >= 0 ; Index--) // reverse the order since PopAll is implicitly backwards
+				{
+					FBaseGraphTask* NewTask = NewTasks[Index];
+					checkThreadGraph(NewTask);
+					NewTask->ConditionalQueueTask(CurrentThreadIfKnown);
+						/**
+						* 后续任务的未完成前提条件数-1，减到0的时候说明后续任务依赖的任务都已完成，可以添加到队列等待执行
+						* void FBaseGraphTask::ConditionalQueueTask(ENamedThreads::Type CurrentThread)
+						* {
+						* 	if (NumberOfPrerequistitesOutstanding.Decrement()==0)
+						* 	{
+						* 		QueueTask(CurrentThread);
+						* 	}
+						* }
+						*/
+				}
+				NewTasks.Reset();
+			}
+	}
+
+	// 析构自己 TGraphTask
+	if (sizeof(TGraphTask) <= FBaseGraphTask::SMALL_TASK_SIZE)
+	{
+		this->TGraphTask::~TGraphTask();
+		FBaseGraphTask::GetSmallTaskAllocator().Free(this);
+	}
+	else
+	{
+		delete this;
+	}
+}
+
+4，创建任务流程
+/**
+* 创建任务，并派发给线程执行
+*/
+FGraphEventRef TGraphTask<TTask>::CreateTask().ConstructAndDispatchWhenReady();
+
+	/**
+	* 创建任务，但还没构造 TTask 的
+	*/
+	static FConstructor TGraphTask<TTask>::CreateTask(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+	{
+		int32 NumPrereq = Prerequisites ? Prerequisites->Num() : 0;
+		if (sizeof(TGraphTask) <= FBaseGraphTask::SMALL_TASK_SIZE)
+		{
+			void *Mem = FBaseGraphTask::GetSmallTaskAllocator().Allocate();
+
+			/**
+			* 构造 FConstructor ，主要初始化了一些属性。同时创建任务，注意这里用了"Placement new"，任务创建在 Mem 地址上
+			*/
+			return FConstructor(new (Mem) TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), NumPrereq), Prerequisites, CurrentThreadIfKnown);
+
+				/**
+				* 构造 TGraphTask ，初始化了一些属性，但还没实际构造TTask
+				* 主要参数：
+				* FGraphEventRef InSubsequents
+				* int32 NumberOfPrerequistitesOutstanding
+				*/
+				TGraphTask<TTask>::TGraphTask(FGraphEventRef InSubsequents, int32 NumberOfPrerequistitesOutstanding)
+					: FBaseGraphTask(NumberOfPrerequistitesOutstanding)
+					, TaskConstructed(false)
+				{
+					Subsequents.Swap(InSubsequents);		// 注意这里是swap了一下
+				}
+
+				FBaseGraphTask(int32 InNumberOfPrerequistitesOutstanding)
+					: ThreadToExecuteOn(ENamedThreads::AnyThread)
+					, NumberOfPrerequistitesOutstanding(InNumberOfPrerequistitesOutstanding + 1) // 点解要+1睇下面 // + 1 is not a prerequisite, it is a lock to prevent it from executing while it is getting prerequisites, one it is safe to execute, call PrerequisitesComplete
+				{
+					checkThreadGraph(LifeStage.Increment() == int32(LS_Contructed));
+					LLM(InheritedLLMTag = FLowLevelMemTracker::bIsDisabled ? ELLMTag::Untagged : (ELLMTag)FLowLevelMemTracker::Get().GetActiveTag(ELLMTracker::Default));
+				}
+
+				/**
+				* 构造 FConstructor ，上面构造的 TGraphTask 对象作为参数传入
+				* 主要参数：
+				* TGraphTask* InOwner
+				* const FGraphEventArray* InPrerequisites
+				* ENamedThreads::Type InCurrentThreadIfKnown
+				*/
+				FConstructor::FConstructor(TGraphTask* InOwner, const FGraphEventArray* InPrerequisites, ENamedThreads::Type InCurrentThreadIfKnown)
+					: Owner(InOwner)
+					, Prerequisites(InPrerequisites)
+					, CurrentThreadIfKnown(InCurrentThreadIfKnown)
+				{
+				}
+
+		}
+		return FConstructor(new TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), NumPrereq), Prerequisites, CurrentThreadIfKnown);
+	}
+
+	/**
+	* 构造TTask，并调用 TGraphTask 设置前提条件的逻辑
+	*/
+	template<typename...T>
+	FGraphEventRef FConstructor::ConstructAndDispatchWhenReady(T&&... Args)
+	{
+		/**
+		* 构造TTask
+		* 注意这里又用了"Placement new"，指定了 Owner->TaskStorage 的地址
+		*/
+		new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Args)...);
+
+		/**
+		* 设置前提条件，并派发给线程执行
+		*/
+		return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
+	}
+
+/**
+* 设置前提条件，并派发给线程执行
+* 主要参数：
+* const FGraphEventArray* Prerequisites = NULL
+* ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread
+*/
+FGraphEventRef TGraphTask<TTask>::Setup(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+{
+	FGraphEventRef ReturnedEventRef = Subsequents; // very important so that this doesn't get destroyed before we return
+	SetupPrereqs(Prerequisites, CurrentThreadIfKnown, true);
+		/**
+		* 设置前提条件
+		*/
+		void TGraphTask<TTask>::SetupPrereqs(const FGraphEventArray* Prerequisites, ENamedThreads::Type CurrentThreadIfKnown, bool bUnlock)
+		{
+			checkThreadGraph(!TaskConstructed);
+			TaskConstructed = true;
+			TTask& Task = *(TTask*)&TaskStorage;
+			SetThreadToExecuteOn(Task.GetDesiredThread());		// 指定任务使用哪个线程执行
+			int32 AlreadyCompletedPrerequisites = 0;			// 已完成的前提条件的数量
+			if (Prerequisites)
+			{
+				for (int32 Index = 0; Index < Prerequisites->Num(); Index++)
+				{
+					FGraphEvent* Prerequisite = (*Prerequisites)[Index];
+					if (Prerequisite == nullptr || !Prerequisite->AddSubsequent(this))		// 就是这里开始形成依赖关系的
+					{
+						/**
+						* push进去就返回true，不然就是closed返回false
+						* 注意就是这里，如果本任务的前提条件未完成，就会把本任务添加到该前提条件的一个队列里（就是用来实现依赖关系的）
+						* bool FGraphEvent::AddSubsequent(class FBaseGraphTask* Task)
+						* {
+						* 	return SubsequentList.PushIfNotClosed(Task);
+						* }
+						*/
+
+						AlreadyCompletedPrerequisites++;
+					}
+				}
+			}
+			PrerequisitesComplete(CurrentThreadIfKnown, AlreadyCompletedPrerequisites, bUnlock);
+				/**
+				* 如果前提条件都已经完成，就添加任务到队列
+				*/
+				void FBaseGraphTask::PrerequisitesComplete(ENamedThreads::Type CurrentThread, int32 NumAlreadyFinishedPrequistes, bool bUnlock = true)
+				{
+					checkThreadGraph(LifeStage.Increment() == int32(LS_PrequisitesSetup));
+					/**
+					* 首先 NumberOfPrerequistitesOutstanding 在初始化的时候是会 +1 了的，
+					* 所以lock不lock主要区别就是，
+					* 	lock的话，就算前置任务全完成都会hold住，先不把任务放到任务队列里
+					* 	不lock的话，前置任务全完成就会放到任务队列里
+					* 其实就是用来处理是否马上放到任务队列里，还是之后自己手动再处理，这个需求吧。
+					*/
+					int32 NumToSub = NumAlreadyFinishedPrequistes + (bUnlock ? 1 : 0); // the +1 is for the "lock" we set up in the constructor
+					if (NumberOfPrerequistitesOutstanding.Subtract(NumToSub) == NumToSub)		// 如果前提条件都已完成，就把任务交给线程执行
+					{
+						QueueTask(CurrentThread);
+							/**
+							* 添加到线程的任务队列
+							*/
+							void FBaseGraphTask::QueueTask(ENamedThreads::Type CurrentThreadIfKnown)
+							{
+								checkThreadGraph(LifeStage.Increment() == int32(LS_Queued));
+
+								/**
+								* 添加到线程的任务队列
+								*/
+								FTaskGraphInterface::Get().QueueTask(this, ThreadToExecuteOn, CurrentThreadIfKnown);
+							}
+					}
+				}
+		}
+
+	return ReturnedEventRef;
+}
+
+/**
+* 添加任务到队列
+*/
+virtual void FTaskGraphImplementation::QueueTask(FBaseGraphTask* Task, ENamedThreads::Type ThreadToExecuteOn, ENamedThreads::Type InCurrentThreadIfKnown = ENamedThreads::AnyThread) final override
+{
+	TASKGRAPH_SCOPE_CYCLE_COUNTER(2, STAT_TaskGraph_QueueTask);
+
+	if (ENamedThreads::GetThreadIndex(ThreadToExecuteOn) == ENamedThreads::AnyThread)
+	{
+		TASKGRAPH_SCOPE_CYCLE_COUNTER(3, STAT_TaskGraph_QueueTask_AnyThread);
+		if (FTaskGraphInterface::IsMultithread())
+		{
+			/**
+			* 下面主要的逻辑就是，对 Task->ThreadToExecuteOn 进行些位运算操作，取出任务优先级和线程优先级，
+			* 然后根据任务优先级和线程优先级把任务添加到对应的队列上等待执行，
+			* 首先理解 Task->ThreadToExecuteOn 是 ENamedThreads::Type 类型，本质就是 int32 类型，
+			* 一共32位，划分了不同区域的位代表不一样的东西。从后到前，第1到8位代表 ThreadIndex ，说明是指定名字的线程（RHI，Audio，Game...）
+			* 还是未指定名字的线程（Any，就是处理优先度任务的线程）。第9位代表 QueueIndex（TODO） ，指定名字的线程会用到。第10位代表 TaskPriority ，
+			* 任务优先度，未指定名字的线程用到，优先度高的会添加在队列前，优先执行。第11到12位代表 ThreadPriority ，线程优先级，未指定名字的线程
+			* 用到，在创建未指定名字的线程时有说到，优先度分3set，普通，高，低，所以要根据线程优先级，选出对应优先级的队列添加任务。
+			* 举个例子：
+			* 如果指定任务在 AnyHiPriThreadNormalTask 上执行
+			* AnyHiPriThreadNormalTask = AnyThread | HighThreadPriority | NormalTaskPriority
+			* AnyHiPriThreadNormalTask = 0xff | 0x400 | 0x000 = 00000000 00000000 00000100 11111111
+			* 说明是任务用未指定名字的线程执行，任务添加到线程优先度高的队列上，任务本身优先级普通，不用插到队列前
+			*/
+			uint32 TaskPriority = ENamedThreads::GetTaskPriority(Task->ThreadToExecuteOn);
+			int32 Priority = ENamedThreads::GetThreadPriorityIndex(Task->ThreadToExecuteOn);
+			if (Priority == (ENamedThreads::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift) && (!bCreatedBackgroundPriorityThreads || !ENamedThreads::bHasBackgroundThreads))
+			{
+				Priority = ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift; // we don't have background threads, promote to normal
+				TaskPriority = ENamedThreads::NormalTaskPriority >> ENamedThreads::TaskPriorityShift; // demote to normal task pri
+			}
+			else if (Priority == (ENamedThreads::HighThreadPriority >> ENamedThreads::ThreadPriorityShift) && (!bCreatedHiPriorityThreads || !ENamedThreads::bHasHighPriorityThreads))
+			{
+				Priority = ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift; // we don't have hi priority threads, demote to normal
+				TaskPriority = ENamedThreads::HighTaskPriority >> ENamedThreads::TaskPriorityShift; // promote to hi task pri
+			}
+			uint32 PriIndex = TaskPriority ? 0 : 1;
+			check(Priority >= 0 && Priority < MAX_THREAD_PRIORITIES);
+			{
+				TASKGRAPH_SCOPE_CYCLE_COUNTER(4, STAT_TaskGraph_QueueTask_IncomingAnyThreadTasks_Push);
+				int32 IndexToStart = IncomingAnyThreadTasks[Priority].Push(Task, PriIndex);		// 添加任务到线程优先级队列
+				if (IndexToStart >= 0)
+				{
+					StartTaskThread(Priority, IndexToStart);
+						/**
+						* 通知线程对象有任务要处理
+						*/
+						void FTaskGraphImplementation::StartTaskThread(int32 Priority, int32 IndexToStart)
+						{
+							ENamedThreads::Type ThreadToWake = ENamedThreads::Type(IndexToStart + Priority * NumTaskThreadsPerSet + NumNamedThreads);
+							((FTaskThreadAnyThread&)Thread(ThreadToWake)).WakeUp();
+								/**
+								* 通知线程对象有任务要处理
+								*/
+								virtual void FTaskThreadAnyThread::WakeUp(int32 QueueIndex = 0) final override
+								{
+									Queue.StallRestartEvent->Trigger();
+								}
+						}
+				}
+			}
+			return;
+		}
+		else
+		{
+			ThreadToExecuteOn = ENamedThreads::GameThread;
+		}
+	}
+	ENamedThreads::Type CurrentThreadIfKnown;
+	if (ENamedThreads::GetThreadIndex(InCurrentThreadIfKnown) == ENamedThreads::AnyThread)
+	{
+		CurrentThreadIfKnown = GetCurrentThread();
+	}
+	else
+	{
+		CurrentThreadIfKnown = ENamedThreads::GetThreadIndex(InCurrentThreadIfKnown);
+		checkThreadGraph(CurrentThreadIfKnown == ENamedThreads::GetThreadIndex(GetCurrentThread()));
+	}
+	{
+		int32 QueueToExecuteOn = ENamedThreads::GetQueueIndex(ThreadToExecuteOn);
+		ThreadToExecuteOn = ENamedThreads::GetThreadIndex(ThreadToExecuteOn);
+		FTaskThreadBase* Target = &Thread(ThreadToExecuteOn);
+		if (ThreadToExecuteOn == ENamedThreads::GetThreadIndex(CurrentThreadIfKnown))
+		{
+			Target->EnqueueFromThisThread(QueueToExecuteOn, Task);
+		}
+		else
+		{
+			Target->EnqueueFromOtherThread(QueueToExecuteOn, Task);
+		}
+	}
 }
