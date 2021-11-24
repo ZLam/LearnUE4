@@ -16,10 +16,11 @@ lockfree的概念
 	1，开始
 	2，概述
 		2.1，普通线程特点（ FRunnable ， FRunnableThread ， FRunnableThreadWin ， FThreadManager ）
-			RunnableThread 是像我们平时使用多线程一样，真正创建一个线程去执行任务的。我们可以继承 Runnable 重写这4个接口来实现自己的逻辑。
+			RunnableThread 是像我们平时使用多线程一样，真正创建一个线程去执行任务的。只是UE4封装了一些类来方便使用。
+			我们可以继承 Runnable 重写这4个接口来实现自己的逻辑。
 			真正表示线程的是 RunnableThread 类。它控制线程的生命周期。实际不同平台会继承它来实现创建线程的逻辑。
 			例如 Windows 平台会有个 RunnableThreadWin 。
-			ThreadManager 主要里面有个map来存储一个线程id对应一个线程对象。
+			ThreadManager 主要里面有个map来存储每个线程id对应一个线程对象。
 		2.2，AsyncTask特点（ IQueuedWork ， FQueuedThread ， FQueuedThreadPoolBase ， FAsyncTask ）
 			引擎在初始化时会创建多个线程池来处理任务。池子的基类是 QueuedThreadPool , 实现是 QueuedThreadPoolBase ，
 			池子里线程的类型是 QueuedThread ，实际是继承自 Runnable ，真正表示线程的是里面的 RunnableThread ，
@@ -31,24 +32,29 @@ lockfree的概念
 	3，普通线程
 		3.1，简单使用方式
 		3.2，执行流程分析
-			创建 RunnableThread 流程
-			RunnableThread 执行任务的流程
+			RunnableThread 创建流程
+			RunnableThread 初始化流程
+			RunnableThread 线程执行任务流程
 			RunnableThread 析构
 	4，AsyncTask
 		4.1，简单使用方式
 		4.2，执行流程分析
 			创建线程池
-			QueuedThread 执行任务的流程
-			线程池添加任务的流程
+			创建线程
+			QueuedThread 线程执行任务流程
+			添加任务
 	5，TaskGraph
 		5.1，简单使用方式
 		5.2，执行流程分析
-			TaskGraph 会创建的线程数 5 + 3 * (8 - 1) 如果设备是8核的话。
-			TaskGraph 初始化 WorkerThread
-			TaskThreadAnyThread 未指定名字线程执行任务的流程
-			GraphTask 任务的执行，DispatchSubsequents 后续逻辑
-			GraphTask 初始化，AddSubsequents 后续逻辑
-			添加任务的逻辑
+			TaskGraph 创建流程
+				总线程数怎么定呢？固定5个指定名字线程，如果设备是8核的话，就会3 * (8 - 1)个未指定名字线程。所以总共就是5 + 3 * (8 - 1)
+				初始化 WorkerThread
+			TaskThreadAnyThread 未指定名字线程执行任务流程
+			GraphTask 执行任务
+				处理依赖关系的逻辑， DispatchSubsequents
+			GraphTask 创建任务
+				处理依赖关系的逻辑， AddSubsequents
+			添加任务
 	6，总结
 		6.1，3种方式的优劣
 		6.2，使用的注意事项
