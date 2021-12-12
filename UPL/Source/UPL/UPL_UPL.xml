@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Unreal Plugin Example-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+    <gameActivityClassAdditions>
+        <insert>
+            public String AndroidThunkJava_Test()
+            {
+                return "haha cpp call java";
+            }
+        </insert>
+    </gameActivityClassAdditions>
+</root>
