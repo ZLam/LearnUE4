@@ -7,7 +7,7 @@ private:
 	virtual ~FNormalSingleton();
 
 	int32 NonSyncCounter;
-	
+
 public:
 	static FNormalSingleton& Get();
 

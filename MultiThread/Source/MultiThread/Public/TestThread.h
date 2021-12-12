@@ -67,6 +67,7 @@ public:
 	void EnsureCompletion();
 
 	void WaitForCompletion();
+	bool Kill();
 
 	int32 GetLastPrimeNumber();
 

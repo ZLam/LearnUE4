@@ -4,12 +4,30 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Async/AsyncWork.h"
+#include "TestTaskGraph.h"
 #include "TestThreadView.generated.h"
 
 class UButton;
 class FTestThreadRunnable;
 class FTestNonSyncThreadRunnableOne;
 class FTestNonSyncThreadRunnableTwo;
+class FTestInitThreadRunnable;
+class FTestNormalAsyncTask;
+
+class FTestStatic
+{
+public:
+	void Run()
+	{
+		static bool b = false;		// 这种静态变量只会构造一个，就算构造多个FTestStatic
+		if (!b)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("=== FTestStatic::Run ==="));
+			b = true;
+		}
+	}
+};
 
 /**
  * 
@@ -23,6 +41,9 @@ private:
 	FTestThreadRunnable* TestThreadRunnable;
 	FTestNonSyncThreadRunnableOne* TestNonSyncThreadOne;
 	FTestNonSyncThreadRunnableTwo* TestNonSyncThreadTwo;
+	FTestInitThreadRunnable* TestInitThread;
+
+	FAsyncTask<FTestNormalAsyncTask>* TestNormalAsyncWork;
 
 protected:
 	UPROPERTY()
@@ -44,13 +65,32 @@ protected:
 	UButton* Btn_TestRunnable_Resume;
 
 	UPROPERTY()
-	UButton* Btn_TestAsyncTask;
-
-	UPROPERTY()
 	UButton* Btn_TestNonSyncThread;
 
 	UPROPERTY()
 	UButton* Btn_GetNonSyncThreadResult;
+
+	UPROPERTY()
+	UButton* Btn_TestStatic;
+
+	UPROPERTY()
+	UButton* Btn_TestInitThread;
+
+	UPROPERTY()
+	UButton* Btn_TestNormalAsyncTask;
+
+	UPROPERTY()
+	UButton* Btn_TestAutoDelAsyncTask;
+
+	UPROPERTY()
+	UButton* Btn_TestTaskGraph;
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void TestAsyncLoadFile2Str(const FString& InFilePath);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void AsyncLoadFile2Str_Callback(const FString& InFileContent);
 
 protected:
 	virtual void NativeOnInitialized() override;
@@ -76,13 +116,27 @@ protected:
 	void Btn_TestRunnable_Resume_Callback();
 
 	UFUNCTION()
-	void Btn_TestAsyncTask_Callback();
-
-	UFUNCTION()
 	void Btn_TestNonSyncThread_Callback();
 
 	UFUNCTION()
 	void Btn_GetNonSyncThreadResult_Callback();
 
-	void DeleteTestThread();
+	UFUNCTION()
+	void Btn_TestStatic_Callback();
+
+	UFUNCTION()
+	void Btn_TestInitThread_Callback();
+
+	UFUNCTION()
+	void Btn_TestNormalAsyncTask_Callback();
+
+	UFUNCTION()
+	void Btn_TestAutoDelAsyncTask_Callback();
+
+	UFUNCTION()
+	void Btn_TestTaskGraph_Callback();
+
+	void CleanupTestThread();
+
+	void CleanupTestAsyncTask();
 };
