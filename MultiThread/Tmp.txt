@@ -27,8 +27,9 @@ lockfree的概念
 			池子里任务的类型都是 QueuedWork ，而我们实际用的是 AsyncTask ，它是个模板类，我们要定义自己的任务类来使用。
 		2.3，TaskGraph特点（ FTaskGraphImplementation ， TGraphTask ， FGraphEvent ， FWorkerThread ， FTaskThreadAnyThread ， FNamedTaskThread ）
 			跟线程池一样，里面有多个线程。线程的类型是 WorkerThread 。
-			WorkerThread 里的 TaskThreadBase 继承自 Runnable ， 会分为指定名字的线程或者未指定名字的线程，它们对任务的处理会不太一样，
+			WorkerThread 里的 TaskThreadBase 继承自 Runnable ， 会分为指定名字的线程和未指定名字的线程，它们对任务的处理会不太一样，
 			任务的基类是 BaseGraphTask ，实际用的是 GraphTask ，也是模板类，我们要定义自己的任务类来使用。
+			任务之间可以形成依赖关系，比如c任务依赖a任务和b任务，那么a任务和b任务执行完后才会触发执行c任务。
 	3，普通线程
 		3.1，简单使用方式
 		3.2，执行流程分析

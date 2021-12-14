@@ -7,6 +7,17 @@
             {
                 return "haha cpp call java";
             }
+            public void AndroidThunkJava_OpenAppDetailSetting()
+            {
+                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", getPackageName(), null));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            }
+            public boolean AndroidThunkJava_CheckPermission(String permissionName)
+            {
+                return PermissionHelper.checkPermission(permissionName);
+            }
         </insert>
     </gameActivityClassAdditions>
 </root>

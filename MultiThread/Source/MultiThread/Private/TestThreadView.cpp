@@ -8,6 +8,10 @@
 #include "TestInitThread.h"
 #include "TestAsyncTask.h"
 
+#include <iostream>
+#include <sstream>
+#include <bitset>
+
 void UTestThreadView::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
@@ -211,6 +215,17 @@ void UTestThreadView::Btn_TestStatic_Callback()
 	UE_LOG(LogTemp, Warning, TEXT("%d"), n);
 	n = int32(4) / int32(3);
 	UE_LOG(LogTemp, Warning, TEXT("%d"), n);
+
+	n = 255;
+	std::stringstream out;
+	out << std::hex << n << std::endl;
+	out << std::oct << n << std::endl;
+	out << std::dec << n << std::endl;
+	// n = n << 4;
+	n = n >> 4;
+	out << std::bitset<sizeof(int32) * 8>(n) << std::endl;
+	FString tStr{ out.str().c_str() };
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *tStr);
 }
 
 void UTestThreadView::Btn_TestInitThread_Callback()
@@ -237,6 +252,8 @@ void UTestThreadView::Btn_TestAutoDelAsyncTask_Callback()
 void UTestThreadView::Btn_TestTaskGraph_Callback()
 {
 	// TGraphTask<FTaskLoadFile2Str>::CreateTask().ConstructAndDispatchWhenReady();
+
+	TGraphTask<FTestTaskGraph>::CreateTask().ConstructAndDispatchWhenReady(123);
 }
 
 void UTestThreadView::TestAsyncLoadFile2Str(const FString& InFilePath)
