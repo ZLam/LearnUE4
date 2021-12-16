@@ -2,7 +2,7 @@
 普通使用的话，首先在项目根目录新建一个 Plugins 文件夹，然后把你的 plugin 复制进去该目录，接着用编辑器打开该项目，在 plugin 选项里把你的 plugin 启用，最后重启编辑器打开项目就可以使用了
 如果要在你的模块里通过 c++ 使用别的 plugin 接口，就在模块的 Build.cs 里的 PrivateDependencyModuleNames 添加对应 plugin
 
-1，include plugin 的 非public 目录下的 header
+2，include plugin 的 非public 目录下的 header
 在模块 Build.cs 里的 PrivateIncludePaths 添加路径，然后重新 gen 一次 vs 工程后再尝试 include
 例如：
 PrivateIncludePaths.AddRange(
@@ -10,6 +10,10 @@ PrivateIncludePaths.AddRange(
         Path.Combine(EngineDirectory, "Plugins/Runtime/AndroidPermission/Source/AndroidPermission/Classes"),
     }
 );
+
+3，generate ios项目xcode工程
+cd "/Users/Shared/Epic Games/UE_4.19/Engine/Build/BatchFiles/Mac" 
+sh "/Users/Shared/Epic Games/UE_4.19/Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh" -project="/Path/To/Project/TestProj/TestProj.uproject" -game
 
 
 

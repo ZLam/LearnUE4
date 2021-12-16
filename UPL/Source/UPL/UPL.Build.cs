@@ -9,11 +9,11 @@ public class UPL : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PrivateIncludePaths.AddRange(
-			new string[] {
-				Path.Combine(EngineDirectory, "Plugins/Runtime/AndroidPermission/Source/AndroidPermission/Classes"),
-			}
-		);
+		// PrivateIncludePaths.AddRange(
+		// 	new string[] {
+		// 		Path.Combine(EngineDirectory, "Plugins/Runtime/AndroidPermission/Source/AndroidPermission/Classes"),
+		// 	}
+		// );
 
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay" });
 
@@ -42,6 +42,12 @@ public class UPL : ModuleRules
 				new string[] {
 					"UIKit",
 					"Foundation",
+				}
+			);
+
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"LocationServicesIOSImpl",
 				}
 			);
 		}
