@@ -15,5 +15,16 @@ PrivateIncludePaths.AddRange(
 cd "/Users/Shared/Epic Games/UE_4.19/Engine/Build/BatchFiles/Mac" 
 sh "/Users/Shared/Epic Games/UE_4.19/Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh" -project="/Path/To/Project/TestProj/TestProj.uproject" -game
 
+4，打包 iOS （免费开发者账号）
+1·首先用 xcode 创建一个 hello world 的 iOS 应用
+2·设置 Bundle Identifier ，其实就是包名啦。留意这个包名要同之后 UE 里配置的包名相同
+3·打包这个 hello world 应用到 iPhone 上，并能正常运行
+4·~/Library/MobileDevice/Provisioning Profiles 就会生成 Provision Profile 文件
+5·复制这个 hello world 应用设置里的 develop team id
+6·打开你的 UE 项目工程，同样设置上面复制的 develop team id
+7·编译运行你的 UE 项目工程，然后在 UE 编辑器上设置 iOS 打包相关选项， Provision Profile 文件，包名，Automatic Signing 设为 true ， 用上面复制的 develop team id 设置 iOS Team ID
+8·尝试打包
+9·用爱思助手之类的工具安装
+
 
 

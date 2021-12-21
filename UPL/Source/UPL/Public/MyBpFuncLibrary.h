@@ -52,4 +52,12 @@ class UPL_API UMyBpFuncLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable)
 	static bool CheckPermissionEX(const FString& InPermissionName);
+    
+    UFUNCTION(BlueprintCallable)
+    static void BindIOSOnDidBecomeActive();
+    
+    static void _IOSOnDidBecomeActive();
+    
+    UFUNCTION(BlueprintCallable)
+    static void Test();
 };

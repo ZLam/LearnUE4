@@ -4,6 +4,7 @@
 #include "MyBpFuncLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "LocationServicesBPLibrary.h"
+#include "Engine/World.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
@@ -13,6 +14,7 @@
 #elif PLATFORM_IOS
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#include "IOS/IOSAppDelegate.h"
 #endif
 
 void UMyBpFuncLibrary::CppCallJava(const UObject* WorldContextObject)
@@ -80,4 +82,21 @@ bool UMyBpFuncLibrary::CheckPermissionEX(const FString& InPermissionName)
 #endif
 
 	return Result;
+}
+
+void UMyBpFuncLibrary::BindIOSOnDidBecomeActive()
+{
+#if PLATFORM_IOS
+    FIOSCoreDelegates::OnDidBecomeActive.AddStatic(UMyBpFuncLibrary::_IOSOnDidBecomeActive);
+#endif
+}
+
+void UMyBpFuncLibrary::_IOSOnDidBecomeActive()
+{
+    UKismetSystemLibrary::PrintString(GWorld, TEXT("haha UMyBpFuncLibrary::_IOSOnDidBecomeActive"));
+}
+
+void UMyBpFuncLibrary::Test()
+{
+    UKismetSystemLibrary::PrintString(GWorld, TEXT("lalala"));
 }

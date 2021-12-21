@@ -81,3 +81,6 @@ Plugins/*/Intermediate/*
 # Cache files for the editor to use
 DerivedDataCache/*
 */DerivedDataCache/*
+
+# my custom
+.DS_Store
