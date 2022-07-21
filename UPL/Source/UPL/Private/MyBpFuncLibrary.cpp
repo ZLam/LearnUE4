@@ -17,6 +17,20 @@
 #include "IOS/IOSAppDelegate.h"
 #endif
 
+/**
+* Android 调 UE
+* 同样是通过 JNI 的
+* 第一步，先在 java 端声明 native 方法（可以通过 UPL）
+* 第二步，在 java 端，你想调用的地方像平时那样调用该方法
+* 第三步，在 UE 端，实现该方法，注意函数签名，一般照着引擎源码来就ok了，另外自己定个 delegate 绑定回调也可以。具体有很多源码可以参考。
+*/
+#if PLATFORM_ANDROID
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnRestart(JNIEnv* jenv, jobject thiz, jobject activity)
+{
+	UE_LOG(LogTemp, Warning, TEXT("haha java call cpp"));
+}
+#endif
+
 void UMyBpFuncLibrary::CppCallJava(const UObject* WorldContextObject)
 {
 	FString Result;

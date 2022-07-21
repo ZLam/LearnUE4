@@ -18,6 +18,12 @@
             {
                 return PermissionHelper.checkPermission(permissionName);
             }
+            public native void nativeOnRestart(GameActivity activity);
         </insert>
     </gameActivityClassAdditions>
+    <gameActivityOnRestartAdditions>
+        <insert>
+            nativeOnRestart(this);
+        </insert>
+    </gameActivityOnRestartAdditions>
 </root>
